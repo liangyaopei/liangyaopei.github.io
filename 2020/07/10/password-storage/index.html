@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liangyaopei.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="开发登录功能的时候，需要保存用户的密码。用户的密码一般不是明文(plain text)，而是经过散列(hash)或者加密(encrypt)保存的。本文介绍几个常用的保存密码的算法。 考虑以下的User表。 1234567CREATE TABLE &#96;user&#96;(    &#96;id&#96; INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT &#39;主键&#39;,    &#96;accoun">
+<meta property="og:type" content="article">
+<meta property="og:title" content="如何保存你的登录密码">
+<meta property="og:url" content="https://liangyaopei.github.io/2020/07/10/password-storage/index.html">
+<meta property="og:site_name" content="Random walk to my blog">
+<meta property="og:description" content="开发登录功能的时候，需要保存用户的密码。用户的密码一般不是明文(plain text)，而是经过散列(hash)或者加密(encrypt)保存的。本文介绍几个常用的保存密码的算法。 考虑以下的User表。 1234567CREATE TABLE &#96;user&#96;(    &#96;id&#96; INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT &#39;主键&#39;,    &#96;accoun">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-07-10T00:47:17.000Z">
+<meta property="article:modified_time" content="2020-10-02T06:51:03.890Z">
+<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:tag" content="password">
+<meta property="article:tag" content="MD5">
+<meta property="article:tag" content="hash">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liangyaopei.github.io/2020/07/10/password-storage/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>如何保存你的登录密码 | Random walk to my blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Random walk to my blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">my blog for sharing my knowledge,experience and viewpoint</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2020/07/10/password-storage/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Random walk to my blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          如何保存你的登录密码
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-10 08:47:17" itemprop="dateCreated datePublished" datetime="2020-07-10T08:47:17+08:00">2020-07-10</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-10-02 14:51:03" itemprop="dateModified" datetime="2020-10-02T14:51:03+08:00">2020-10-02</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>开发登录功能的时候，需要保存用户的密码。用户的密码一般不是明文(plain text)，而是经过散列(hash)或者加密(encrypt)保存的。本文介绍几个常用的保存密码的算法。</p>
+<p>考虑以下的<code>User</code>表。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> <span class="string">`user`</span>(</span><br><span class="line">    <span class="string">`id`</span> <span class="built_in">INT</span> <span class="keyword">UNSIGNED</span> <span class="keyword">NOT</span> <span class="literal">NULL</span> AUTO_INCREMENT <span class="keyword">COMMENT</span> <span class="string">'主键'</span>,</span><br><span class="line">    <span class="string">`account`</span> <span class="built_in">VARCHAR</span>(<span class="number">128</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">''</span> <span class="keyword">COMMENT</span> <span class="string">'账号'</span>,</span><br><span class="line">    <span class="string">`password_hash`</span> <span class="built_in">VARCHAR</span>(<span class="number">1024</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">''</span> <span class="keyword">COMMENT</span> <span class="string">'密码散列值'</span>,</span><br><span class="line">    <span class="string">`salt`</span> <span class="built_in">VARCHAR</span>(<span class="number">128</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">''</span> <span class="keyword">COMMENT</span> <span class="string">'盐'</span>,</span><br><span class="line">    PRIMARY <span class="keyword">KEY</span>(<span class="string">`id`</span>),</span><br><span class="line">)<span class="keyword">ENGINE</span>=<span class="keyword">InnoDB</span> AUTO_INCREMENT=<span class="number">1</span> <span class="keyword">DEFAULT</span> <span class="keyword">CHARSET</span>=utf8mb4 <span class="keyword">COMMENT</span>=<span class="string">'用户账号表'</span>;</span><br></pre></td></tr></table></figure>
+<a id="more"></a> 
+
+<h2 id="MD5消息摘要算法"><a href="#MD5消息摘要算法" class="headerlink" title="MD5消息摘要算法"></a>MD5消息摘要算法</h2><p>MD5信息摘要算法（MD5 Message-Digest Algorithm），一种被广泛使用的密码散列函数，可以产生出一个128比特（16字节）的散列值（hash value），用于确保信息传输完整一致。<br>需要注意的是, <code>MD5</code>不是一种加密算法，而是一种压缩信息的算法。当输入的值有很少的变化时，结果也会产生很大的不同。看下面的例子。</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ md5 -s <span class="string">"patrick"</span></span><br><span class="line">MD5 (<span class="string">"patrick"</span>) = 6c84cbd30cf9350a990bad2bcc1bec5f</span><br><span class="line"></span><br><span class="line">$ md5 -s <span class="string">"Patrick"</span></span><br><span class="line">MD5 (<span class="string">"Patrick"</span>) = f87567f2159b425795ebb7ba9bc406ec</span><br></pre></td></tr></table></figure>
+
+<h3 id="MySQL保存MD5的密码"><a href="#MySQL保存MD5的密码" class="headerlink" title="MySQL保存MD5的密码"></a>MySQL保存<code>MD5</code>的密码</h3><p>MySQL保存使用<code>md5</code>保存密码，除了使用<code>CHAR(32)</code>来保存，也可以使用<code>BINARY(16)</code>来保存。</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">MySQL [(none)]&gt; SET @str=<span class="string">'patirck'</span>;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">MySQL [(none)]&gt; SELECT MD5(@str),LENGTH(MD5(@str)) AS len_md5,LENGTH(UNHEX(MD5(@str))) as len_unhex;</span><br><span class="line">+----------------------------------+---------+-----------+</span><br><span class="line">| MD5(@str)                        | len_md5 | len_unhex |</span><br><span class="line">+----------------------------------+---------+-----------+</span><br><span class="line">| 91325f7a12f20fef31a48b5d691c279c |      32 |        16 |</span><br><span class="line">+----------------------------------+---------+-----------+</span><br><span class="line">1 row <span class="keyword">in</span> <span class="built_in">set</span> (0.01 sec)</span><br></pre></td></tr></table></figure>
+<p>示例说明</p>
+<ol>
+<li>MySQL中，<code>BINARY</code>类型是用来保存二进制字符串(byte string)，MySQL会给<code>BINARY</code>类型的变量添加<code>\0</code>.</li>
+<li>从<a href="https://dev.mysql.com/doc/refman/5.7/en/string-functions.html#function_unhex" target="_blank" rel="noopener">MySQL的文档</a>中，<code>UNHEX(str)</code>,将字符串的字符，以十六进制去解析，然后转化为二进制字符串。<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SELECT UNHEX('4D7953514C');</span><br><span class="line">        -&gt; 'MySQL'</span><br><span class="line">mysql&gt; SELECT X'4D7953514C';</span><br><span class="line">        -&gt; 'MySQL'</span><br><span class="line">mysql&gt; SELECT UNHEX(HEX('string'));</span><br><span class="line">        -&gt; 'string'</span><br><span class="line">mysql&gt; SELECT HEX(UNHEX('1267'));</span><br><span class="line">        -&gt; '1267'</span><br></pre></td></tr></table></figure>
+并且，输入的字符必须是合法的十六进制数字(‘0’…’9’,’a’…’f’,’A’…’F’)<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SELECT UNHEX(&#39;Patick&#39;);</span><br><span class="line">+-----------------+</span><br><span class="line">| UNHEX(&#39;Patick&#39;) |</span><br><span class="line">+-----------------+</span><br><span class="line">| NULL            |</span><br><span class="line">+-----------------+</span><br></pre></td></tr></table></figure></li>
+<li>与<code>UNHEX</code>对应的<code>HEX</code>。从<a href="https://dev.mysql.com/doc/refman/5.7/en/string-functions.html#function_hex" target="_blank" rel="noopener">MySQL的文档</a>中，<code>HEX(str)</code>返回一个字符串的十六进制表示，字符串的每个字符，都被转化成2个十六进制的数字。<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SELECT X&#39;616263&#39;, HEX(&#39;abc&#39;), UNHEX(HEX(&#39;abc&#39;));</span><br><span class="line">        -&gt; &#39;abc&#39;, 616263, &#39;abc&#39;</span><br><span class="line">mysql&gt; SELECT HEX(255), CONV(HEX(255),16,10);</span><br><span class="line">        -&gt; &#39;FF&#39;, 255</span><br></pre></td></tr></table></figure>
+
+</li>
+</ol>
+<h2 id="MD5-salt"><a href="#MD5-salt" class="headerlink" title="MD5 + salt"></a>MD5 + salt</h2><p><code>MD5</code>本质上是一个信息摘要算法，将长度不一的密码<code>p</code>映射成一个128比特的散列值(hash value)<code>hash(p)</code>。<br>那么能否从散列值<code>hash(p)</code>，反推出密码<code>p</code>了？如果可以的话，当黑客拿到数据库的结果散列的密码，尝试反推出密码，并且用相同的账号密码去登录用户在其他地方的账号，这回造成用户资料的泄露。</p>
+<h3 id="暴力攻击-brute-force-attack"><a href="#暴力攻击-brute-force-attack" class="headerlink" title="暴力攻击(brute force attack)"></a>暴力攻击(brute force attack)</h3><p>暴力攻击就是，对于给出的一个<code>hash(p)</code>，反算出一个<code>p</code>来满足<code>q = hash(p)</code>。<br>一般有两种方法，一种就是，把密码集合中的每一个<code>p</code>都算一下<code>hash(p)</code>，直到结果等于<code>p</code>；另一种办法是查表法，搞一个很大的数据库，把每个<code>p</code>和对应的<code>hash(p)</code>都记录下来，按<code>q</code>做一下索引。这两种办法理论上都是可以的，但是前一种可能需要海量的时间，后一种需要海量的存储空间。<br>因此暴力攻击并不可行。</p>
+<h3 id="彩虹表攻击-rainbow-table-attack"><a href="#彩虹表攻击-rainbow-table-attack" class="headerlink" title="彩虹表攻击(rainbow table attack)"></a>彩虹表攻击(rainbow table attack)</h3><p>既然存储所有的明文密码对需要的空间太大，密码学家们想出了一种以计算时间降低存储空间的办法：“预计算的哈希链集”（Precomputed hash chains）。下面是一条k=2<a href="https://en.wikipedia.org/wiki/Rainbow_table#:~:text=A%20rainbow%20table%20is%20a,a%20limited%20set%20of%20characters" target="_blank" rel="noopener">哈希链</a>：</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">aaaaaa -&gt; 281DAF40 -&gt; sgfnyd -&gt; 920ECF10 -&gt; kiebgt</span><br><span class="line">       H           R          H           R</span><br></pre></td></tr></table></figure>
+<p>H函数就是要破解的哈希函数。<br>约简函数（reduction function）R函数是构建这条链的时候定义的一个函数：它的值域和定义域与H函数相反。通过该函数可以将哈希值约简为一个与原文相同格式的值。<br>这条链是这样生成的：</p>
+<ul>
+<li>随机选择一个明文aaaaaa</li>
+<li>对其求哈希得到281DAF40</li>
+<li>R(281DAF40) 得到另外一个明文sgfnyd。</li>
+<li>继续重复2,3步骤<br>存储的时候，不需要存储所有的节点，只需要存储每条链的头尾节点（这里是aaaaaa和kiebgt）<br>以大量的随机明文作为起节点，通过上述步骤计算出哈希链并将终节点进行储存，可得到一张哈希链集。</li>
+</ul>
+<h4 id="预计算的哈希链集的使用：破解一个hash值"><a href="#预计算的哈希链集的使用：破解一个hash值" class="headerlink" title="预计算的哈希链集的使用：破解一个hash值"></a>预计算的哈希链集的使用：破解一个hash值</h4><ul>
+<li>假设其刚好是<code>920ECF10</code>：首先对其进行一次R运算，得到<code>kiebgt</code>，然后发现刚好命中了哈希链集中的<code>（aaaaaa,kiebgt）</code>链条。可以确定其极大概率在这个链条中。于是从<code>aaaaaa</code>开始重复哈希链的计算过程，发现<code>sgfnyd</code>的哈希结果刚好是<code>920ECF10</code>,于是破解成功。</li>
+<li>密文不是<code>920ECF10</code>而是<code>281DAF40</code>：第一次R运算后的结果并未在末节点中找到，则再重复一次H运算+R运算，这时又得到了末节点中的值“kiebgt”。于是再从头开始运算，可知aaaaaa刚好哈希值为281DAF40。</li>
+<li>如是重复了k（=2）次之后，仍然没有在末节点中找到对应的值，则破解失败。<br>预计算的哈希链集的意义</li>
+</ul>
+<p>对于一个长度为k的预计算的哈希链集，每次破解计算次数不超过k，因此比暴力破解大大节约时间。<br>每条链只保存起节点和末节点，储存空间只需约1/k，因而大大节约了空间。</p>
+<h3 id="防御彩虹表的攻击：加盐-salt"><a href="#防御彩虹表的攻击：加盐-salt" class="headerlink" title="防御彩虹表的攻击：加盐(salt)"></a>防御彩虹表的攻击：加盐(salt)</h3><p><a href="https://zh.wikipedia.org/wiki/%E7%9B%90_(%E5%AF%86%E7%A0%81%E5%AD%A6)" target="_blank" rel="noopener">盐</a>（Salt），在密码学中，是指在散列之前将散列内容（例如：密码）的任意固定位置插入特定的字符串。这个在散列中加入字符串的方式称为“加盐”。其作用是让加盐后的散列结果和没有加盐的结果不相同，在不同的应用情景中，这个处理可以增加额外的安全性。</p>
+<p>比如说，用户的密码是<code>passwd</code>,盐是<code>my</code>,组成后的值是<code>mypasswd</code>, md5的值是<code>3102125cae72c19f215480ddf2d0d5c3</code>。这样，就算md5的散列值被破解，获得<code>mypasswd</code>，也难以获得用户的原始密码。<br>我们甚至可以进行两次的md5散列操作.</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">md5(md5(password)+salt)</span><br></pre></td></tr></table></figure>
+<p>这样使得保存的密码更为安全。</p>
+<h2 id="SHA-Secure-Hash-Algorithms-安全散列算法"><a href="#SHA-Secure-Hash-Algorithms-安全散列算法" class="headerlink" title="SHA(Secure Hash Algorithms):安全散列算法"></a>SHA(Secure Hash Algorithms):安全散列算法</h2><p>关于SHA的<a href="https://zh.wikipedia.org/wiki/SHA%E5%AE%B6%E6%97%8F" target="_blank" rel="noopener">维基百科</a>是这样解释SHA算法的</p>
+<blockquote>
+<p>安全散列算法（Secure Hash Algorithm，SHA）是一个密码散列函数家族，是FIPS所认证的安全散列算法。能计算出一个数字消息所对应到的，长度固定的字符串（又称消息摘要）的算法。且若输入的消息不同，它们对应到不同字符串的几率很高。<br>SHA-0：1993年发布，当时称做安全散列标准（Secure Hash Standard），发布之后很快就被NSA撤回，是SHA-1的前身。<br>SHA-1：1995年发布，SHA-1在许多安全协议中广为使用，包括TLS、GnuPG、SSH、S/MIME和IPsec，是MD5的后继者。但SHA-1的安全性在2010年以后已经不被大多数的加密场景所接受。2017年荷兰密码学研究小组CWI和Google正式宣布攻破了SHA-1[1]。<br>SHA-2：2001年发布，包括SHA-224、SHA-256、SHA-384、SHA-512、SHA-512/224、SHA-512/256。SHA-2目前没有出现明显的弱点。虽然至今尚未出现对SHA-2有效的攻击，但它的算法跟SHA-1基本上仍然相似。<br>SHA-3：2015年正式发布，由于对MD5出现成功的破解，以及对SHA-0和SHA-1出现理论上破解的方法，NIST感觉需要一个与之前算法不同的，可替换的加密散列算法，也就是现在的SHA-3。</p>
+</blockquote>
+<p>SHA1和SHA2的一个主要区别是，SHA1是160 bit的散列值，而SHA2可以产生几种不同长度的散列值，例如<code>SHA-256</code>产生256 bit的散列值。下面是在linux上计算<code>patrick</code>的<code>SHA256</code>值的命令。</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">echo</span> -n patrick | sha256sum</span><br><span class="line">23ddda4810068cc44360dffd31b6c5a9ad13fb9e6a69c9354a5d1b07f1b9843f</span><br></pre></td></tr></table></figure>
+<p><strong>目前，SHA1算法已经不再使用，广泛使用的是SHA2算法</strong></p>
+<h3 id="Linux用户登录的密码保存方式"><a href="#Linux用户登录的密码保存方式" class="headerlink" title="Linux用户登录的密码保存方式"></a>Linux用户登录的密码保存方式</h3><p>Linux的密码是保存在<code>/etc/shadow</code>文件中。看下面示例。</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sudo cat /etc/shadow</span><br><span class="line">patrick:<span class="variable">$6</span><span class="variable">$C</span>/vGzhVe<span class="variable">$aKKGdhzTmYyxp8</span>.E68gCBkPhlWQ4W7/OpCFQYV.qsCtKaV00bToWh286yzy73jedg6i0qSlZkZqQy.wmiUdje:18447:0:99999:7:::</span><br></pre></td></tr></table></figure>
+<ul>
+<li>patrick</li>
+<li>加密后的密码：<code>$6$C/vGzhVe$aKKGdhzTmYyxp8.E68gCBkPhlWQ4W7/OpCFQYV.qsCtKaV00bToWh286yzy73jedg6i0qSlZkZqQy.wmiUdje</code></li>
+<li>上次修改密码的时间:18447天(从1970.1.1开始算起)</li>
+<li>两次修改密码间隔：没有限制</li>
+<li>两次修改密码间隔最多的天数：没有限制</li>
+<li>提前7天警告用户密码将过期</li>
+<li>该用户永久可用<br>加密的格式是<figure class="highlight pgsql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$id$<span class="pgsql">salt$<span class="keyword">encrypted</span></span></span><br></pre></td></tr></table></figure>
+id表示加密算法，1代表MD5，5代表SHA-256，6代表SHA-512。<code>salt</code>表示盐,系统随机生成。<code>encrypted</code>表示密码的散列值(hash)</li>
+</ul>
+<h2 id="SHA足够安全了吗？"><a href="#SHA足够安全了吗？" class="headerlink" title="SHA足够安全了吗？"></a>SHA足够安全了吗？</h2><p><code>MD5</code>,<code>SHA</code>都是信息摘要算法，他们不是被设计用来做密钥导出函数（Key derivation function）的。<br>即使是<code>SHA3</code>散列函数，在计算能力越来越强的时候，被破解的时间也大幅减少。</p>
+<blockquote>
+<p><a href="https://zh.wikipedia.org/wiki/%E5%AF%86%E9%92%A5%E6%B4%BE%E7%94%9F%E5%87%BD%E6%95%B0" target="_blank" rel="noopener">密钥派生函数</a>:在密码学中，密钥派生函数（英语：Key derivation function，简称：KDF）使用伪随机函数从诸如主密钥或密码的秘密值中派生出一个或多个密钥。KDF可用于将密钥扩展为更长的密钥或获取所需格式的密钥，例如将作为迪菲-赫尔曼密钥交换结果的组元素转换为用于高级加密标准（AES）的对称密钥。用于密钥派生的伪随机函数最常见的示例是密码散列函数。<br>这种使用可以表示为DK = KDF（Key，Salt，Iterations），其中DK是派生密钥，KDF是密钥导出函数，Key是原始密钥或密码，Salt是作为密码盐的随机数，Iterations是指子功能的迭代次数。使用派生密钥代替原始密钥或密码作为系统的密钥。盐的值和迭代次数（如果不固定）与散列密码一起存储或以加密消息的明文形式发送。</p>
+</blockquote>
+<p>这里介绍一种<code>bcrypt</code>的密码散列算法。</p>
+<h3 id="bcrypt"><a href="#bcrypt" class="headerlink" title="bcrypt"></a>bcrypt</h3><p><code>bcrypt</code>是设计用于密码散列的，所以它是一个运行速度比较慢的算法。运行速度比较慢，对于密码散列来说，算是一个比较好的特性，因为攻击者也需要更长的时间去生成字典攻击。<br><code>bcrypt</code>算法主要分为2个步骤.</p>
+<ol>
+<li><code>EksBlowfishSetup</code>使用<code>cost</code>,<code>salt</code>,<code>password</code>去初始化状态<code>eksblowfish</code>。然后<code>bcrypt</code>使用大量的时间去运行密钥派生，从一个主key中得到一系列的子key。这里的主key就是输入的password。</li>
+<li>然后使用<code>OrpheanBeholderScryDoubt</code>的字符串，进行64次加密。<figure class="highlight reasonml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">bcrypt(cost,salt,pwd)</span><br><span class="line">  state &lt;- <span class="constructor">EksBlowfishSetup(<span class="params">cost</span>,<span class="params">salt</span>,<span class="params">key</span>)</span></span><br><span class="line">  ctext &lt;- <span class="string">"OrpheanBeholderScryDoubt"</span></span><br><span class="line">  repeat(<span class="number">64</span>)</span><br><span class="line">     ctext &lt;- <span class="constructor">EncryptECB(<span class="params">sate</span>,<span class="params">ctext</span>)</span></span><br><span class="line">  return <span class="constructor">Concatenate(<span class="params">cost</span>,<span class="params">salt</span>,<span class="params">ctext</span>)</span></span><br></pre></td></tr></table></figure></li>
+</ol>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/password/" rel="tag"># password</a>
+              <a href="/tags/MD5/" rel="tag"># MD5</a>
+              <a href="/tags/hash/" rel="tag"># hash</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/07/SQL%E7%9A%84%E5%88%9B%E5%BB%BA%E8%AF%AD%E5%8F%A5%E8%BD%AC%E5%8C%96%E6%88%90Golang%E7%9A%84ORM%E7%BB%93%E6%9E%84%E4%BD%93-struct/" rel="prev" title="SQL的创建语句转化成Golang的ORM结构体(struct)">
+      <i class="fa fa-chevron-left"></i> SQL的创建语句转化成Golang的ORM结构体(struct)
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/11/what-is-oauth/" rel="next" title="OAuth介绍">
+      OAuth介绍 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#MD5消息摘要算法"><span class="nav-number">1.</span> <span class="nav-text">MD5消息摘要算法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#MySQL保存MD5的密码"><span class="nav-number">1.1.</span> <span class="nav-text">MySQL保存MD5的密码</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MD5-salt"><span class="nav-number">2.</span> <span class="nav-text">MD5 + salt</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#暴力攻击-brute-force-attack"><span class="nav-number">2.1.</span> <span class="nav-text">暴力攻击(brute force attack)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#彩虹表攻击-rainbow-table-attack"><span class="nav-number">2.2.</span> <span class="nav-text">彩虹表攻击(rainbow table attack)</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#预计算的哈希链集的使用：破解一个hash值"><span class="nav-number">2.2.1.</span> <span class="nav-text">预计算的哈希链集的使用：破解一个hash值</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#防御彩虹表的攻击：加盐-salt"><span class="nav-number">2.3.</span> <span class="nav-text">防御彩虹表的攻击：加盐(salt)</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SHA-Secure-Hash-Algorithms-安全散列算法"><span class="nav-number">3.</span> <span class="nav-text">SHA(Secure Hash Algorithms):安全散列算法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Linux用户登录的密码保存方式"><span class="nav-number">3.1.</span> <span class="nav-text">Linux用户登录的密码保存方式</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SHA足够安全了吗？"><span class="nav-number">4.</span> <span class="nav-text">SHA足够安全了吗？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#bcrypt"><span class="nav-number">4.1.</span> <span class="nav-text">bcrypt</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">23</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liangyaopei" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yaopei.liang@foxmail.com" title="E-Mail → mailto:yaopei.liang@foxmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://github.com/liangyaopei" title="https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank">Github</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

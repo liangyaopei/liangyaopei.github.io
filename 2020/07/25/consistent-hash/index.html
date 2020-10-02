@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liangyaopei.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="分布式哈希（Distributed Hashing）分布式环境中，需要进行分布式哈希来进行负载均衡，减少忙碌服务器的负载。例如，对一个键(key)做了哈希后，需要确定它保存在哪个服务器上面。一致性散列(consistent hash)函数的特点是，当函数范围(例如，服务器的数量)变化，它变化的最少。一个对一致性哈希的典型应用是Memcached.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一致性哈希算法">
+<meta property="og:url" content="https://liangyaopei.github.io/2020/07/25/consistent-hash/index.html">
+<meta property="og:site_name" content="Random walk to my blog">
+<meta property="og:description" content="分布式哈希（Distributed Hashing）分布式环境中，需要进行分布式哈希来进行负载均衡，减少忙碌服务器的负载。例如，对一个键(key)做了哈希后，需要确定它保存在哪个服务器上面。一致性散列(consistent hash)函数的特点是，当函数范围(例如，服务器的数量)变化，它变化的最少。一个对一致性哈希的典型应用是Memcached.">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/07/25/consistent-hash/hash_ring.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/07/25/consistent-hash/hash_ring_server.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/07/25/consistent-hash/hash_ring_key_server.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/07/25/consistent-hash/hash_ring_weight.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/07/25/consistent-hash/hash_ring_reduce.jpg">
+<meta property="article:published_time" content="2020-07-25T02:13:50.000Z">
+<meta property="article:modified_time" content="2020-10-02T06:51:03.869Z">
+<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:tag" content="一致性哈希(consistent hash)">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://liangyaopei.github.io/2020/07/25/consistent-hash/hash_ring.png">
+
+<link rel="canonical" href="https://liangyaopei.github.io/2020/07/25/consistent-hash/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>一致性哈希算法 | Random walk to my blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Random walk to my blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">my blog for sharing my knowledge,experience and viewpoint</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2020/07/25/consistent-hash/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Random walk to my blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          一致性哈希算法
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-25 10:13:50" itemprop="dateCreated datePublished" datetime="2020-07-25T10:13:50+08:00">2020-07-25</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-10-02 14:51:03" itemprop="dateModified" datetime="2020-10-02T14:51:03+08:00">2020-10-02</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/hash/" itemprop="url" rel="index"><span itemprop="name">hash</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="分布式哈希（Distributed-Hashing）"><a href="#分布式哈希（Distributed-Hashing）" class="headerlink" title="分布式哈希（Distributed Hashing）"></a>分布式哈希（Distributed Hashing）</h2><p>分布式环境中，需要进行<a href="https://github.com/papers-we-love/papers-we-love/blob/master/distributed_systems/consistent-hashing-and-random-trees.pdf" target="_blank" rel="noopener">分布式哈希</a>来进行负载均衡，减少忙碌服务器的负载。例如，对一个键(key)做了哈希后，需要确定它保存在哪个服务器上面。一致性散列(consistent hash)函数的特点是，当函数范围(例如，服务器的数量)变化，它变化的最少。<br>一个对一致性哈希的典型应用是<a href="https://en.wikipedia.org/wiki/Memcached" target="_blank" rel="noopener">Memcached</a>.</p>
+<a id="more"></a> 
+
+<h2 id="对长度做的哈希"><a href="#对长度做的哈希" class="headerlink" title="对长度做的哈希"></a>对长度做的哈希</h2><p>假设不使用一致性哈希函数，只是简单地根据服务器的数量进行哈希。</p>
+<p>假设有3台服务器A,B,C, 现在采用的策略是<code>hash(key) mod N</code>。</p>
+<blockquote>
+<p>一般来说，取余(mod)操作比较慢，如果服务器的数量是<code>2^N</code>,计算mod操作时，可以用<code>hash(key) &amp; (2^N )</code>来提高速度。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th align="left">KEY</th>
+<th align="left">HASH</th>
+<th align="left">HASH mod 3</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">“john”</td>
+<td align="left">1633428562</td>
+<td align="left">2</td>
+</tr>
+<tr>
+<td align="left">“bill”</td>
+<td align="left">7594634739</td>
+<td align="left">0</td>
+</tr>
+<tr>
+<td align="left">“jane”</td>
+<td align="left">5000799124</td>
+<td align="left">1</td>
+</tr>
+<tr>
+<td align="left">“steve”</td>
+<td align="left">9787173343</td>
+<td align="left">0</td>
+</tr>
+<tr>
+<td align="left">“kate”</td>
+<td align="left">3421657995</td>
+<td align="left">2</td>
+</tr>
+</tbody></table>
+<p>key在服务器的分布情况如下：</p>
+<table>
+<thead>
+<tr>
+<th align="left">A</th>
+<th align="left">B</th>
+<th align="left">C</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">“bill”</td>
+<td align="left">“jane”</td>
+<td align="left">“john”</td>
+</tr>
+<tr>
+<td align="left">“steve”</td>
+<td align="left"></td>
+<td align="left">“kate”</td>
+</tr>
+</tbody></table>
+<h3 id="再散列问题"><a href="#再散列问题" class="headerlink" title="再散列问题"></a>再散列问题</h3><p>这时，如果服务器的数量发生改变，因为策略是<code>hash(key) mod N</code>。 key在服务器的分布情况会发生较大的变化。假设减少了一台服务器，现在只有服务器A,B。</p>
+<table>
+<thead>
+<tr>
+<th align="left">KEY</th>
+<th align="left">HASH</th>
+<th align="left">HASH mod 2</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">“john”</td>
+<td align="left">1633428562</td>
+<td align="left">0</td>
+</tr>
+<tr>
+<td align="left">“bill”</td>
+<td align="left">7594634739</td>
+<td align="left">1</td>
+</tr>
+<tr>
+<td align="left">“jane”</td>
+<td align="left">5000799124</td>
+<td align="left">0</td>
+</tr>
+<tr>
+<td align="left">“steve”</td>
+<td align="left">9787173343</td>
+<td align="left">1</td>
+</tr>
+<tr>
+<td align="left">“kate”</td>
+<td align="left">3421657995</td>
+<td align="left">1</td>
+</tr>
+</tbody></table>
+<p>分布情况：</p>
+<table>
+<thead>
+<tr>
+<th align="left">A</th>
+<th align="left">B</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">“john”</td>
+<td align="left">“bill”</td>
+</tr>
+<tr>
+<td align="left">“jane”</td>
+<td align="left">“steve”</td>
+</tr>
+<tr>
+<td align="left"></td>
+<td align="left">“kate”</td>
+</tr>
+</tbody></table>
+<p>可以看到，<code>hash(key) mod N</code>, 由于N这个值域发送变化，key的分布全部都变了。这会导致，短时间内，对key的查询失效，增加服务器的负担，减低性能。</p>
+<h2 id="解决方法：一致性hash"><a href="#解决方法：一致性hash" class="headerlink" title="解决方法：一致性hash"></a>解决方法：一致性hash</h2><p>一致性hash是一个分布式的hash方法，它的hash与服务器的数量无关，因为它将key 映射在一个虚拟的hash环（hash ring)，使得服务变得更为可扩展。</p>
+<p>假设将<code>hash(key)</code>映射到一个环，最小值是0，它的角度也为0度，最大值是<code>INT_MAX</code>,角度是360度。<br><img src="hash_ring.png" alt="hash ring"></p>
+<table>
+<thead>
+<tr>
+<th align="left">KEY</th>
+<th align="left">HASH</th>
+<th align="left">ANGLE (DEG)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">“john”</td>
+<td align="left">1633428562</td>
+<td align="left">58.8</td>
+</tr>
+<tr>
+<td align="left">“bill”</td>
+<td align="left">7594634739</td>
+<td align="left">273.4</td>
+</tr>
+<tr>
+<td align="left">“jane”</td>
+<td align="left">5000799124</td>
+<td align="left">180</td>
+</tr>
+<tr>
+<td align="left">“steve”</td>
+<td align="left">9787173343</td>
+<td align="left">352.3</td>
+</tr>
+<tr>
+<td align="left">“kate”</td>
+<td align="left">3421657995</td>
+<td align="left">123.2</td>
+</tr>
+</tbody></table>
+<p>同样地，将服务器做系统的映射，放到hash ring。<br><img src="hash_ring_server.png" alt="hash ring server"></p>
+<table>
+<thead>
+<tr>
+<th align="left">KEY</th>
+<th align="left">HASH</th>
+<th align="left">ANGLE (DEG)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">“john”</td>
+<td align="left">1633428562</td>
+<td align="left">58.8</td>
+</tr>
+<tr>
+<td align="left">“bill”</td>
+<td align="left">7594634739</td>
+<td align="left">273.4</td>
+</tr>
+<tr>
+<td align="left">“jane”</td>
+<td align="left">5000799124</td>
+<td align="left">180</td>
+</tr>
+<tr>
+<td align="left">“steve”</td>
+<td align="left">9787173343</td>
+<td align="left">352.3</td>
+</tr>
+<tr>
+<td align="left">“kate”</td>
+<td align="left">3421657995</td>
+<td align="left">123.2</td>
+</tr>
+<tr>
+<td align="left">“A”</td>
+<td align="left">5572014558</td>
+<td align="left">200.6</td>
+</tr>
+<tr>
+<td align="left">“B”</td>
+<td align="left">8077113362</td>
+<td align="left">290.8</td>
+</tr>
+<tr>
+<td align="left">“C”</td>
+<td align="left">2269549488</td>
+<td align="left">81.7</td>
+</tr>
+</tbody></table>
+<p>我们可以设置自己的规则，以逆时针方向，每个key都属于距离它最近的服务器<br><img src="hash_ring_key_server.png" alt="hash ring skey erver"></p>
+<table>
+<thead>
+<tr>
+<th align="left">EY</th>
+<th align="left">HASH</th>
+<th align="left">ANGLE (DEG)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">“john”</td>
+<td align="left">1633428562</td>
+<td align="left">58.7</td>
+</tr>
+<tr>
+<td align="left">“C”</td>
+<td align="left">2269549488</td>
+<td align="left">81.7</td>
+</tr>
+<tr>
+<td align="left">“kate”</td>
+<td align="left">3421657995</td>
+<td align="left">123.1</td>
+</tr>
+<tr>
+<td align="left">“jane”</td>
+<td align="left">5000799124</td>
+<td align="left">180</td>
+</tr>
+<tr>
+<td align="left">“A”</td>
+<td align="left">5572014557</td>
+<td align="left">200.5</td>
+</tr>
+<tr>
+<td align="left">“bill”</td>
+<td align="left">7594634739</td>
+<td align="left">273.4</td>
+</tr>
+<tr>
+<td align="left">“B”</td>
+<td align="left">8077113361</td>
+<td align="left">290.7</td>
+</tr>
+<tr>
+<td align="left">“steve”</td>
+<td align="left">787173343</td>
+<td align="left">352.3</td>
+</tr>
+</tbody></table>
+<table>
+<thead>
+<tr>
+<th align="left">KEY</th>
+<th align="left">HASH</th>
+<th align="left">ANGLE (DEG)</th>
+<th align="left">LABEL</th>
+<th align="left">SERVER</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">“john”</td>
+<td align="left">1632929716</td>
+<td align="left">58.7</td>
+<td align="left">“C”</td>
+<td align="left">C</td>
+</tr>
+<tr>
+<td align="left">“kate”</td>
+<td align="left">3421831276</td>
+<td align="left">123.1</td>
+<td align="left">“A”</td>
+<td align="left">A</td>
+</tr>
+<tr>
+<td align="left">“jane”</td>
+<td align="left">5000648311</td>
+<td align="left">180</td>
+<td align="left">“A”</td>
+<td align="left">A</td>
+</tr>
+<tr>
+<td align="left">“bill”</td>
+<td align="left">7594873884</td>
+<td align="left">273.4</td>
+<td align="left">“B”</td>
+<td align="left">B</td>
+</tr>
+<tr>
+<td align="left">“steve”</td>
+<td align="left">9786437450</td>
+<td align="left">352.3</td>
+<td align="left">“C”</td>
+<td align="left">C</td>
+</tr>
+</tbody></table>
+<p>从编程的角度，我们可以将服务器的值（角度或者hash值）保存在一个有序列表中，然后去搜索这个列表，找到第一个它的值大于或者等于key值的服务器，如果找不到，就去去列表的第一个服务器。</p>
+<p>为了保证key是均匀第分布在服务器中，我们给服务器赋予很多的标签(label)，例如<code>A0...A9</code>, <code>B0...B9</code>, <code>C0...C9</code>,然后将其散布到hash ring中。每个服务器的label的数量就是这个服务器的权重(weight)， 这是用来调整key落在服务器上的可能性。权重越大，label越多，一个服务器保存的key越多。</p>
+<p>例如，给服务器<code>A</code>,<code>B</code>, <code>C</code>相同的权重，10个权重，分布在hash ring中。</p>
+<p><img src="hash_ring_weight.png" alt="hash_ring_weight"></p>
+<table>
+<thead>
+<tr>
+<th align="left">KEY</th>
+<th align="left">HASH</th>
+<th align="left">ANGLE (DEG)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">“C6”</td>
+<td align="left">408965526</td>
+<td align="left">14.7</td>
+</tr>
+<tr>
+<td align="left">“A1”</td>
+<td align="left">473914830</td>
+<td align="left">17</td>
+</tr>
+<tr>
+<td align="left">“A2”</td>
+<td align="left">548798874</td>
+<td align="left">19.7</td>
+</tr>
+<tr>
+<td align="left">“A3”</td>
+<td align="left">1466730567</td>
+<td align="left">52.8</td>
+</tr>
+<tr>
+<td align="left">“C4”</td>
+<td align="left">1493080938</td>
+<td align="left">53.7</td>
+</tr>
+<tr>
+<td align="left">“john”</td>
+<td align="left">1633428562</td>
+<td align="left">58.7</td>
+</tr>
+<tr>
+<td align="left">“B2”</td>
+<td align="left">1808009038</td>
+<td align="left">65</td>
+</tr>
+<tr>
+<td align="left">“C0”</td>
+<td align="left">1982701318</td>
+<td align="left">71.3</td>
+</tr>
+<tr>
+<td align="left">“B3”</td>
+<td align="left">2058758486</td>
+<td align="left">74.1</td>
+</tr>
+<tr>
+<td align="left">“A7”</td>
+<td align="left">2162578920</td>
+<td align="left">77.8</td>
+</tr>
+<tr>
+<td align="left">“B4”</td>
+<td align="left">2660265921</td>
+<td align="left">95.7</td>
+</tr>
+<tr>
+<td align="left">“C9”</td>
+<td align="left">3359725419</td>
+<td align="left">120.9</td>
+</tr>
+<tr>
+<td align="left">“kate”</td>
+<td align="left">3421657995</td>
+<td align="left">123.1</td>
+</tr>
+<tr>
+<td align="left">“A5”</td>
+<td align="left">3434972143</td>
+<td align="left">123.6</td>
+</tr>
+<tr>
+<td align="left">“C1”</td>
+<td align="left">3672205973</td>
+<td align="left">132.1</td>
+</tr>
+<tr>
+<td align="left">“C8”</td>
+<td align="left">3750588567</td>
+<td align="left">135</td>
+</tr>
+<tr>
+<td align="left">“B0”</td>
+<td align="left">4049028775</td>
+<td align="left">145.7</td>
+</tr>
+<tr>
+<td align="left">“B8”</td>
+<td align="left">4755525684</td>
+<td align="left">171.1</td>
+</tr>
+<tr>
+<td align="left">“A9”</td>
+<td align="left">4769549830</td>
+<td align="left">171.7</td>
+</tr>
+<tr>
+<td align="left">“jane”</td>
+<td align="left">5000799124</td>
+<td align="left">180</td>
+</tr>
+<tr>
+<td align="left">“C7”</td>
+<td align="left">5014097839</td>
+<td align="left">180.5</td>
+</tr>
+<tr>
+<td align="left">“B1”</td>
+<td align="left">5444659173</td>
+<td align="left">196</td>
+</tr>
+<tr>
+<td align="left">“A6”</td>
+<td align="left">6210502707</td>
+<td align="left">223.5</td>
+</tr>
+<tr>
+<td align="left">“A0”</td>
+<td align="left">6511384141</td>
+<td align="left">234.4</td>
+</tr>
+<tr>
+<td align="left">“B9”</td>
+<td align="left">7292819872</td>
+<td align="left">262.5</td>
+</tr>
+<tr>
+<td align="left">“C3”</td>
+<td align="left">7330467663</td>
+<td align="left">263.8</td>
+</tr>
+<tr>
+<td align="left">“C5”</td>
+<td align="left">7502566333</td>
+<td align="left">270</td>
+</tr>
+<tr>
+<td align="left">“bill”</td>
+<td align="left">7594634739</td>
+<td align="left">273.4</td>
+</tr>
+<tr>
+<td align="left">“A4”</td>
+<td align="left">8047401090</td>
+<td align="left">289.7</td>
+</tr>
+<tr>
+<td align="left">“C2”</td>
+<td align="left">8605012288</td>
+<td align="left">309.7</td>
+</tr>
+<tr>
+<td align="left">“A8”</td>
+<td align="left">8997397092</td>
+<td align="left">323.9</td>
+</tr>
+<tr>
+<td align="left">“B7”</td>
+<td align="left">9038880553</td>
+<td align="left">325.3</td>
+</tr>
+<tr>
+<td align="left">“B5”</td>
+<td align="left">9368225254</td>
+<td align="left">337.2</td>
+</tr>
+<tr>
+<td align="left">“B6”</td>
+<td align="left">9379713761</td>
+<td align="left">337.6</td>
+</tr>
+<tr>
+<td align="left">“steve”</td>
+<td align="left">9787173343</td>
+<td align="left">352.3</td>
+</tr>
+</tbody></table>
+<table>
+<thead>
+<tr>
+<th align="left">KEY</th>
+<th align="left">HASH</th>
+<th align="left">ANGLE (DEG)</th>
+<th align="left">LABEL</th>
+<th align="left">SERVER</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">“john”</td>
+<td align="left">1632929716</td>
+<td align="left">58.7</td>
+<td align="left">“B2”</td>
+<td align="left">B</td>
+</tr>
+<tr>
+<td align="left">“kate”</td>
+<td align="left">3421831276</td>
+<td align="left">123.1</td>
+<td align="left">“A5”</td>
+<td align="left">A</td>
+</tr>
+<tr>
+<td align="left">“jane”</td>
+<td align="left">5000648311</td>
+<td align="left">180</td>
+<td align="left">“C7”</td>
+<td align="left">C</td>
+</tr>
+<tr>
+<td align="left">“bill”</td>
+<td align="left">7594873884</td>
+<td align="left">273.4</td>
+<td align="left">“A4”</td>
+<td align="left">A</td>
+</tr>
+<tr>
+<td align="left">“steve”</td>
+<td align="left">9786437450</td>
+<td align="left">352.3</td>
+<td align="left">“C6”</td>
+<td align="left">C</td>
+</tr>
+</tbody></table>
+<p>使用hash ring的好处是，如果标签<code>C0...C9</code>被移除， 之前属于<code>C0...C9</code>标签的key就会落到<code>A0...A1</code>和<code>B0...B1</code>上面，其他标签的key没有变化。</p>
+<p><img src="hash_ring_reduce.jpg" alt="hash_ring_reduce"></p>
+<table>
+<thead>
+<tr>
+<th align="left">KEY</th>
+<th align="left">HASH</th>
+<th align="left">ANGLE (DEG)</th>
+<th align="left">LABEL</th>
+<th align="left">SERVER</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">“john”</td>
+<td align="left">1632929716</td>
+<td align="left">58.7</td>
+<td align="left">“B2”</td>
+<td align="left">B</td>
+</tr>
+<tr>
+<td align="left">“kate”</td>
+<td align="left">3421831276</td>
+<td align="left">123.1</td>
+<td align="left">“A5”</td>
+<td align="left">A</td>
+</tr>
+<tr>
+<td align="left">“jane”</td>
+<td align="left">5000648311</td>
+<td align="left">180</td>
+<td align="left">“B1”</td>
+<td align="left">B</td>
+</tr>
+<tr>
+<td align="left">“bill”</td>
+<td align="left">7594873884</td>
+<td align="left">273.4</td>
+<td align="left">“A4”</td>
+<td align="left">A</td>
+</tr>
+<tr>
+<td align="left">“steve”</td>
+<td align="left">9786437450</td>
+<td align="left">352.3</td>
+<td align="left">“A1”</td>
+<td align="left">A</td>
+</tr>
+</tbody></table>
+<p>同样地，当服务器数量增加时，变化也是类似的。</p>
+<p>如果有<code>k</code>个key，<code>N</code>个服务器，当服务器数量变化时。只有<code>k/N</code>个key发生变化。    </p>
+<blockquote>
+<p>更多内容，访问我的<a href="https://www.liangyaopei.com/" target="_blank" rel="noopener">博客</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7%E5%93%88%E5%B8%8C-consistent-hash/" rel="tag"># 一致性哈希(consistent hash)</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/22/golang-struct-to-map/" rel="prev" title="Golang反射：结构体(struct) 转化成map">
+      <i class="fa fa-chevron-left"></i> Golang反射：结构体(struct) 转化成map
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/29/bloom-filter/" rel="next" title="布隆过滤器(Bloom Filter)原理及Golang实现">
+      布隆过滤器(Bloom Filter)原理及Golang实现 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#分布式哈希（Distributed-Hashing）"><span class="nav-number">1.</span> <span class="nav-text">分布式哈希（Distributed Hashing）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#对长度做的哈希"><span class="nav-number">2.</span> <span class="nav-text">对长度做的哈希</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#再散列问题"><span class="nav-number">2.1.</span> <span class="nav-text">再散列问题</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#解决方法：一致性hash"><span class="nav-number">3.</span> <span class="nav-text">解决方法：一致性hash</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">23</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liangyaopei" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yaopei.liang@foxmail.com" title="E-Mail → mailto:yaopei.liang@foxmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://github.com/liangyaopei" title="https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank">Github</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

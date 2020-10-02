@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liangyaopei.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="1.如果内容能被转化为数字类型，尽量使用数字类型而不是字符类型如果要保存IPv4地址，反例 1&#96;ip_address&#96; VARCHAR(15) NOT NULL 正例。 1&#96;ip_address&#96; INT UNSIGNED NOT NULL 原因  因为IPv4地址可以转化成一个int类型的十进制整数。转化方法：ip中的每一段转化为两位的十六进制整数。例如，192.160.98.123转化为十六进">
+<meta property="og:type" content="article">
+<meta property="og:title" content="如何优化MySQL查询语句">
+<meta property="og:url" content="https://liangyaopei.github.io/2020/07/05/MySQL%E8%AF%AD%E5%8F%A5%E7%9A%84%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9/index.html">
+<meta property="og:site_name" content="Random walk to my blog">
+<meta property="og:description" content="1.如果内容能被转化为数字类型，尽量使用数字类型而不是字符类型如果要保存IPv4地址，反例 1&#96;ip_address&#96; VARCHAR(15) NOT NULL 正例。 1&#96;ip_address&#96; INT UNSIGNED NOT NULL 原因  因为IPv4地址可以转化成一个int类型的十进制整数。转化方法：ip中的每一段转化为两位的十六进制整数。例如，192.160.98.123转化为十六进">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-07-05T13:48:06.000Z">
+<meta property="article:modified_time" content="2020-07-05T13:48:06.000Z">
+<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:tag" content="MySQL">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liangyaopei.github.io/2020/07/05/MySQL%E8%AF%AD%E5%8F%A5%E7%9A%84%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>如何优化MySQL查询语句 | Random walk to my blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Random walk to my blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">my blog for sharing my knowledge,experience and viewpoint</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2020/07/05/MySQL%E8%AF%AD%E5%8F%A5%E7%9A%84%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Random walk to my blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          如何优化MySQL查询语句
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-05 21:48:06" itemprop="dateCreated datePublished" datetime="2020-07-05T21:48:06+08:00">2020-07-05</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="1-如果内容能被转化为数字类型，尽量使用数字类型而不是字符类型"><a href="#1-如果内容能被转化为数字类型，尽量使用数字类型而不是字符类型" class="headerlink" title="1.如果内容能被转化为数字类型，尽量使用数字类型而不是字符类型"></a>1.如果内容能被转化为数字类型，尽量使用数字类型而不是字符类型</h3><p>如果要保存IPv4地址，<br>反例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">`ip_address` VARCHAR(15) NOT NULL</span><br></pre></td></tr></table></figure>
+<p>正例。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">`ip_address` INT UNSIGNED NOT NULL</span><br></pre></td></tr></table></figure>
+<p>原因</p>
+<ul>
+<li>因为IPv4地址可以转化成一个int类型的十进制整数。转化方法：ip中的每一段转化为两位的十六进制整数。例如，<code>192.160.98.123</code>转化为十六进制数是，<code>C0</code>,<code>A0</code>,<code>62</code>,<code>7B</code>,<code>C0A0627B</code>转化为十进制数是3231736443。<a id="more"></a> 
+
+</li>
+</ul>
+<h3 id="2-不要用select-而是要select具体的字段"><a href="#2-不要用select-而是要select具体的字段" class="headerlink" title="2.不要用select *,而是要select具体的字段"></a>2.不要用<code>select *</code>,而是要select具体的字段</h3><p>反例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> employee;</span><br></pre></td></tr></table></figure>
+<p>正例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">id</span>，<span class="keyword">name</span> <span class="keyword">from</span> employee;</span><br></pre></td></tr></table></figure>
+<p>原因</p>
+<ul>
+<li>通过选择需要的字段，能够节约资源和减少网络开销<!--more--> 
+
+</li>
+</ul>
+<h3 id="3-预先知道只有一条返回结果，推荐使用limit-1"><a href="#3-预先知道只有一条返回结果，推荐使用limit-1" class="headerlink" title="3.预先知道只有一条返回结果，推荐使用limit 1"></a>3.预先知道只有一条返回结果，推荐使用<code>limit 1</code></h3><p>反例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">id</span>，<span class="keyword">name</span> <span class="keyword">from</span> employee <span class="keyword">where</span> <span class="keyword">name</span>=<span class="string">'jay'</span>;</span><br></pre></td></tr></table></figure>
+<p>正例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">id</span>，<span class="keyword">name</span> <span class="keyword">from</span> employee <span class="keyword">where</span> <span class="keyword">name</span>=<span class="string">'jay'</span> <span class="keyword">limit</span> <span class="number">1</span>;</span><br></pre></td></tr></table></figure>
+<p>原因</p>
+<ul>
+<li>通过加上<code>limit 1</code>，当一条相关的记录被查询到时，数据库不会继续扫表，而是返回结果</li>
+</ul>
+<h3 id="4-在where条件中避免使用or"><a href="#4-在where条件中避免使用or" class="headerlink" title="4.在where条件中避免使用or"></a>4.在<code>where</code>条件中避免使用<code>or</code></h3><p>以下面的<code>user</code>表为例子，<code>usedId</code>作为索引。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> <span class="string">`user`</span> (</span><br><span class="line">  <span class="string">`id`</span> <span class="built_in">int</span>(<span class="number">11</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span> AUTO_INCREMENT,</span><br><span class="line">  <span class="string">`userId`</span> <span class="built_in">int</span>(<span class="number">11</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span>,</span><br><span class="line">  <span class="string">`age`</span> <span class="built_in">int</span>(<span class="number">11</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span>,</span><br><span class="line">  <span class="string">`name`</span> <span class="built_in">varchar</span>(<span class="number">255</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span>,</span><br><span class="line">  PRIMARY <span class="keyword">KEY</span> (<span class="string">`id`</span>),</span><br><span class="line">  <span class="keyword">KEY</span> <span class="string">`idx_userId`</span> (<span class="string">`userId`</span>) </span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>如果你想查询用户id为1或者，年龄为18的用户，你可能使用以下<code>sql</code>语句。<br>反例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> userid = <span class="number">1</span> <span class="keyword">or</span> age = <span class="number">18</span>;</span><br></pre></td></tr></table></figure>
+<p>正例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> userid=<span class="number">1</span> </span><br><span class="line"><span class="keyword">union</span> <span class="keyword">all</span> </span><br><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> age = <span class="number">18</span>;</span><br><span class="line">// 或者使用两条独立的sql</span><br><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> userid=<span class="number">1</span>;</span><br><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> age = <span class="number">18</span>;</span><br></pre></td></tr></table></figure>
+<p>原因</p>
+<ul>
+<li><code>or</code>的使用可能导致全表扫表，导致没有使用索引</li>
+</ul>
+<h3 id="5-优化limit分页"><a href="#5-优化limit分页" class="headerlink" title="5.优化limit分页"></a>5.优化limit分页</h3><p>当使用<code>limit</code>去分页的时候，<code>offset</code>的值可能非常大，查询的效率就会下降。<br>反例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">id</span>，<span class="keyword">name</span>，age <span class="keyword">from</span> employee <span class="keyword">limit</span> <span class="number">10000</span>，<span class="number">10</span>;</span><br></pre></td></tr></table></figure>
+<p>正例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">// 方案1</span><br><span class="line"><span class="keyword">select</span> <span class="keyword">id</span>，<span class="keyword">name</span> <span class="keyword">from</span> employee <span class="keyword">where</span> <span class="keyword">id</span>&gt;<span class="number">10000</span> <span class="keyword">limit</span> <span class="number">10</span>;</span><br><span class="line">// 方案2</span><br><span class="line"><span class="keyword">select</span> <span class="keyword">id</span>，<span class="keyword">name</span> <span class="keyword">from</span> employee <span class="keyword">order</span> <span class="keyword">by</span> <span class="keyword">id</span>  <span class="keyword">limit</span> <span class="number">10000</span>，<span class="number">10</span>;</span><br></pre></td></tr></table></figure>
+<p>原因</p>
+<ul>
+<li>使用方案1，返回的是最后的查询记录，这里跳过了偏移，所以能提高查询效率</li>
+<li>使用方案2，使用<code>order by</code>和主键索引，也能提高查询效率</li>
+</ul>
+<h3 id="6-优化LIKE语句"><a href="#6-优化LIKE语句" class="headerlink" title="6.优化LIKE语句"></a>6.优化<code>LIKE</code>语句</h3><p>模糊查询的时候，如果不是前缀查询，会使索引失效。<br>反例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> userId，<span class="keyword">name</span> <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> userId <span class="keyword">like</span> <span class="string">'%Patrick'</span>;</span><br></pre></td></tr></table></figure>
+<p>正例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> userId，<span class="keyword">name</span> <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> userId <span class="keyword">like</span> <span class="string">'Patrick%'</span>;</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="7-where语句中避免使用-或-lt-gt"><a href="#7-where语句中避免使用-或-lt-gt" class="headerlink" title="7.where语句中避免使用!=或&lt;&gt;"></a>7.<code>where</code>语句中避免使用<code>!=</code>或<code>&lt;&gt;</code></h3><p>反例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> age,<span class="keyword">name</span>  <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> age &lt;&gt;<span class="number">18</span>;</span><br></pre></td></tr></table></figure>
+<p>正例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> age,<span class="keyword">name</span> <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> age &gt; <span class="number">18</span>;</span><br><span class="line"><span class="keyword">select</span> age,<span class="keyword">name</span> <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> age &lt; <span class="number">18</span>;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>原因<br>使用<code>!=</code>或者<code>&lt;&gt;</code>有可能使索引失效</li>
+</ul>
+<h3 id="8-需要插入大量数据的时候，使用批量插入"><a href="#8-需要插入大量数据的时候，使用批量插入" class="headerlink" title="8.需要插入大量数据的时候，使用批量插入"></a>8.需要插入大量数据的时候，使用批量插入</h3><p>反例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">for(User u :list)&#123;</span><br><span class="line"> <span class="keyword">INSERT</span> <span class="keyword">into</span> <span class="keyword">user</span>(<span class="keyword">name</span>,age) <span class="keyword">values</span>(<span class="comment">#name#,#age#)   </span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>正例</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">// 500个插入，将插入语句拼接成一个sql</span><br><span class="line">&lt;foreach collection="list" item="item" index="index" separator=","&gt;</span><br><span class="line">    (<span class="comment">#&#123;item.name&#125;,#&#123;item.age&#125;)</span></span><br><span class="line">&lt;/foreach&gt;</span><br></pre></td></tr></table></figure>
+<p>原因</p>
+<ul>
+<li>批量插入能节省每次插入数据库表的结构调整（例如索引等），从而节省时间</li>
+</ul>
+<h3 id="9-注意distinct的使用"><a href="#9-注意distinct的使用" class="headerlink" title="9.注意distinct的使用"></a>9.注意<code>distinct</code>的使用</h3><p><code>distinct</code>一般用来过滤重复的记录。当时查询单个或者少量的字段时，能够提高查询的效率。<br>但是，当对很多字段使用<code>distinct</code>时，会降低查询的效率。<br>反例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="keyword">DISTINCT</span> * <span class="keyword">from</span>  <span class="keyword">user</span>;</span><br></pre></td></tr></table></figure>
+<p>正例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">DISTINCT</span> <span class="keyword">name</span> <span class="keyword">from</span> <span class="keyword">user</span>;</span><br></pre></td></tr></table></figure>
+<p>原因</p>
+<ul>
+<li>当对很多字段使用<code>distinct</code>时，CPU需要花费大量的时间进行去重。</li>
+</ul>
+<h3 id="10-去掉冗余的索引"><a href="#10-去掉冗余的索引" class="headerlink" title="10.去掉冗余的索引"></a>10.去掉冗余的索引</h3><p>反例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">KEY `idx_userId` (`userId`)  </span><br><span class="line">KEY `idx_userId_age` (`userId`,`age`)</span><br></pre></td></tr></table></figure>
+<p>正例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">KEY `idx_userId_age` (`userId`,`age`)</span><br></pre></td></tr></table></figure>
+<p>原因</p>
+<ul>
+<li>冗余的索引需要数据库进行维护，当优化器选择索引时，需要一个个地选择。</li>
+</ul>
+<h3 id="11-如果数据量太大，优化delete语句"><a href="#11-如果数据量太大，优化delete语句" class="headerlink" title="11.如果数据量太大，优化delete语句"></a>11.如果数据量太大，优化<code>delete</code>语句</h3><p>当删除大量的数据时，因为删除记录需要对表进行加锁。删除大量的数据，需要占用较多的时间，从而会导致其他事务处于等待锁的阶段，从而超时。<br>反例</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">// 一次删除1百万条记录</span><br><span class="line"><span class="keyword">delete</span> <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> <span class="keyword">id</span> &lt;<span class="number">100000</span>;</span><br><span class="line">// 在一个循环里面删除单条记录</span><br><span class="line">for（User user：list）&#123;   delete from user； &#125;</span><br></pre></td></tr></table></figure>
+<p>正例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">// 批量删除，每次删除500条记录</span><br><span class="line"><span class="keyword">delete</span> product <span class="keyword">where</span> <span class="keyword">id</span>&gt;=<span class="number">500</span> <span class="keyword">and</span> <span class="keyword">id</span>&lt;<span class="number">1000</span>；</span><br></pre></td></tr></table></figure>
+
+<h3 id="12-不要使用NULL-而是使用默认值，"><a href="#12-不要使用NULL-而是使用默认值，" class="headerlink" title="12.不要使用NULL,而是使用默认值，"></a>12.不要使用<code>NULL</code>,而是使用默认值，</h3><p>反例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> age <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">null</span>;</span><br></pre></td></tr></table></figure>
+<p>正例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> age&gt;<span class="number">0</span>; // 将0作为默认值</span><br></pre></td></tr></table></figure>
+<p>原因</p>
+<ul>
+<li>MySQL中，<code>NULL</code>会占用空间，并且MySQL对含有<code>NULL</code>的列很难进行查询优化。</li>
+</ul>
+<h3 id="13-使用union-all替代union"><a href="#13-使用union-all替代union" class="headerlink" title="13.使用union all替代union"></a>13.使用<code>union all</code>替代<code>union</code></h3><p>反例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> userid=<span class="number">1</span> </span><br><span class="line"><span class="keyword">union</span>  </span><br><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> age = <span class="number">10</span></span><br></pre></td></tr></table></figure>
+<p>正例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> userid=<span class="number">1</span> </span><br><span class="line"><span class="keyword">union</span> <span class="keyword">all</span>  </span><br><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> age = <span class="number">10</span></span><br></pre></td></tr></table></figure>
+<p>原因</p>
+<ul>
+<li>使用<code>union</code>, 在shuMySQL会对查询结果进行去重操作,而去重操作涉及到排序，这可能会影响性能</li>
+<li>使用<code>union all</code>没有对查询结果进行去重。如果确定查询结果没有重复的记录，可以使用<code>union all</code>而不是<code>union</code></li>
+</ul>
+<h3 id="14-使用explain去分析你的sql语句"><a href="#14-使用explain去分析你的sql语句" class="headerlink" title="14.使用explain去分析你的sql语句"></a>14.使用<code>explain</code>去分析你的sql语句</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">explain</span> <span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">user</span> <span class="keyword">where</span> userid = <span class="number">10086</span> <span class="keyword">or</span> age =<span class="number">18</span>;</span><br></pre></td></tr></table></figure>
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MySQL/" rel="tag"># MySQL</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/04/Golang-Context%E8%A7%A3%E6%9E%90/" rel="prev" title="Golang Context用法以及源码分析">
+      <i class="fa fa-chevron-left"></i> Golang Context用法以及源码分析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/07/SQL%E7%9A%84%E5%88%9B%E5%BB%BA%E8%AF%AD%E5%8F%A5%E8%BD%AC%E5%8C%96%E6%88%90Golang%E7%9A%84ORM%E7%BB%93%E6%9E%84%E4%BD%93-struct/" rel="next" title="SQL的创建语句转化成Golang的ORM结构体(struct)">
+      SQL的创建语句转化成Golang的ORM结构体(struct) <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-如果内容能被转化为数字类型，尽量使用数字类型而不是字符类型"><span class="nav-number">1.</span> <span class="nav-text">1.如果内容能被转化为数字类型，尽量使用数字类型而不是字符类型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-不要用select-而是要select具体的字段"><span class="nav-number">2.</span> <span class="nav-text">2.不要用select *,而是要select具体的字段</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-预先知道只有一条返回结果，推荐使用limit-1"><span class="nav-number">3.</span> <span class="nav-text">3.预先知道只有一条返回结果，推荐使用limit 1</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-在where条件中避免使用or"><span class="nav-number">4.</span> <span class="nav-text">4.在where条件中避免使用or</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-优化limit分页"><span class="nav-number">5.</span> <span class="nav-text">5.优化limit分页</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-优化LIKE语句"><span class="nav-number">6.</span> <span class="nav-text">6.优化LIKE语句</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-where语句中避免使用-或-lt-gt"><span class="nav-number">7.</span> <span class="nav-text">7.where语句中避免使用!&#x3D;或&lt;&gt;</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-需要插入大量数据的时候，使用批量插入"><span class="nav-number">8.</span> <span class="nav-text">8.需要插入大量数据的时候，使用批量插入</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#9-注意distinct的使用"><span class="nav-number">9.</span> <span class="nav-text">9.注意distinct的使用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#10-去掉冗余的索引"><span class="nav-number">10.</span> <span class="nav-text">10.去掉冗余的索引</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#11-如果数据量太大，优化delete语句"><span class="nav-number">11.</span> <span class="nav-text">11.如果数据量太大，优化delete语句</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#12-不要使用NULL-而是使用默认值，"><span class="nav-number">12.</span> <span class="nav-text">12.不要使用NULL,而是使用默认值，</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#13-使用union-all替代union"><span class="nav-number">13.</span> <span class="nav-text">13.使用union all替代union</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#14-使用explain去分析你的sql语句"><span class="nav-number">14.</span> <span class="nav-text">14.使用explain去分析你的sql语句</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">23</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liangyaopei" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yaopei.liang@foxmail.com" title="E-Mail → mailto:yaopei.liang@foxmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://github.com/liangyaopei" title="https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank">Github</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liangyaopei.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文介绍一下OAuth(Open Authentication). 账号密码登录当我们登录一个网站时，我们经常需要输入账号密码。 123456   网站                           数据库+------------+                   +------------------------+|     账号    |  --------------&gt;">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OAuth介绍">
+<meta property="og:url" content="https://liangyaopei.github.io/2020/07/11/what-is-oauth/index.html">
+<meta property="og:site_name" content="Random walk to my blog">
+<meta property="og:description" content="本文介绍一下OAuth(Open Authentication). 账号密码登录当我们登录一个网站时，我们经常需要输入账号密码。 123456   网站                           数据库+------------+                   +------------------------+|     账号    |  --------------&gt;">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/07/11/what-is-oauth/wechat_read_book.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/07/11/what-is-oauth/wechat_read_book_channel.jpg">
+<meta property="article:published_time" content="2020-07-11T02:14:37.000Z">
+<meta property="article:modified_time" content="2020-10-02T06:51:03.892Z">
+<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:tag" content="OAuth">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://liangyaopei.github.io/2020/07/11/what-is-oauth/wechat_read_book.jpg">
+
+<link rel="canonical" href="https://liangyaopei.github.io/2020/07/11/what-is-oauth/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>OAuth介绍 | Random walk to my blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Random walk to my blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">my blog for sharing my knowledge,experience and viewpoint</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2020/07/11/what-is-oauth/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Random walk to my blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          OAuth介绍
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-11 10:14:37" itemprop="dateCreated datePublished" datetime="2020-07-11T10:14:37+08:00">2020-07-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-10-02 14:51:03" itemprop="dateModified" datetime="2020-10-02T14:51:03+08:00">2020-10-02</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%99%BB%E5%BD%95/" itemprop="url" rel="index"><span itemprop="name">登录</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>本文介绍一下OAuth(Open Authentication).</p>
+<h2 id="账号密码登录"><a href="#账号密码登录" class="headerlink" title="账号密码登录"></a>账号密码登录</h2><p>当我们登录一个网站时，我们经常需要输入账号密码。</p>
+<figure class="highlight gherkin"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">   网站                           数据库</span><br><span class="line">+------------+                   +------------------------+</span><br><span class="line">|<span class="string">     账号    </span>|<span class="string">  --------------&gt;  </span>|<span class="string">     对密码做散列(hash)   </span>|</span><br><span class="line">|<span class="string">     密码    </span>|<span class="string">  &lt;--session--     </span>|<span class="string">     验证散列值           </span>|<span class="string"> </span></span><br><span class="line"><span class="string">+------------+                   </span>|<span class="string">      在数据库中寻找信息   </span>|</span><br><span class="line">                                 +-------------------------+</span><br></pre></td></tr></table></figure>
+
+<a id="more"></a> 
+
+<h3 id="局限"><a href="#局限" class="headerlink" title="局限"></a>局限</h3><ul>
+<li>安全问题。必须保证用户的信息是安全保存的，即使数据库泄露也不会暴露用户密码。常用的方法是对密码做hash操作。</li>
+<li>维护问题。需要维护一个登录校验的服务。<br>账号密码登录与<code>OAuth</code>没有关系，在这里写出来只是为了与<code>OAuth</code>做比较。</li>
+</ul>
+<h2 id="OAuth"><a href="#OAuth" class="headerlink" title="OAuth"></a>OAuth</h2><h3 id="什么是OAuth"><a href="#什么是OAuth" class="headerlink" title="什么是OAuth"></a>什么是OAuth</h3><p>OAuth全称是Open Authentication</p>
+<blockquote>
+<p>开放授权（OAuth）是一个开放标准，允许用户让第三方应用访问该用户在某一网站上存储的私密的资源（如照片，视频，联系人列表），而无需将用户名和密码提供给第三方应用。<br>OAuth允许用户提供一个令牌，而不是用户名和密码来访问他们存放在特定服务提供者的数据。每一个令牌授权一个特定的网站（例如，视频编辑网站)在特定的时段（例如，接下来的2小时内）内访问特定的资源（例如仅仅是某一相册中的视频）。这样，OAuth让用户可以授权第三方网站访问他们存储在另外服务提供者的某些特定信息，而非所有内容。</p>
+</blockquote>
+<p>目前使用最广泛的是<code>OAuth 2.0</code>,<code>OAuth 1.0</code>已经被废弃了。本文中的<code>OAuth</code>都是指<code>OAuth 2.0</code></p>
+<h3 id="认证-Authentication-与-授权-Authorization"><a href="#认证-Authentication-与-授权-Authorization" class="headerlink" title="认证(Authentication) 与 授权(Authorization)"></a>认证(Authentication) 与 授权(Authorization)</h3><p>需要注意的是，<code>OAuth 2.0</code>是为授权(Authorization)的，不是为了认证(Authentication)。下面介绍一下授权与认证的区别。</p>
+<table>
+<thead>
+<tr>
+<th>认证(Authentication)</th>
+<th>授权（<strong>Authorization</strong>）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>确定用户是不是他声称的人（证明你是你）</td>
+<td>确定用户是否有权限通行</td>
+</tr>
+<tr>
+<td>需要用户提供证书(credentials)证明自己身份</td>
+<td>根据规则判断用户是否有权限通行</td>
+</tr>
+<tr>
+<td>发送在授权之前</td>
+<td>发生在认知之后</td>
+</tr>
+<tr>
+<td>例子：学生进入图书馆，需要出示学生证，表明是自己是一个学生。</td>
+<td>进入图书馆后，学生能够进入自习室，但不能进入没有开放的区域。</td>
+</tr>
+</tbody></table>
+<h3 id="OAuth-2-0术语"><a href="#OAuth-2-0术语" class="headerlink" title="OAuth 2.0术语"></a>OAuth 2.0术语</h3><ul>
+<li>资源拥有者（resource owner): app用户，拥有app想要的数据（用户名，头像等）</li>
+<li>客户（client）：app</li>
+<li>授权服务器（Authorization server）:授权的系统</li>
+<li>资源服务器（Resource server）：拥有用户数据的系统</li>
+<li>授权许可（Authorization grant）：用户对于数据授权的证明</li>
+<li>Redirect Uri（重定向Uri）：当用户允许之后，重定向到的地方</li>
+<li>访问令牌（access token）：从资源服务器获取数据的令牌</li>
+<li>访问（Scope）：决定app可以对用户进行的操作的等级</li>
+</ul>
+<h3 id="OAuth-流程"><a href="#OAuth-流程" class="headerlink" title="OAuth 流程"></a>OAuth 流程</h3><p>下面以使用微信账号登录微信读书为例子。<br><img src="wechat_read_book.jpg" alt="OAuth flow"></p>
+<h4 id="Step-1-app-发送请求"><a href="#Step-1-app-发送请求" class="headerlink" title="Step 1:app 发送请求"></a>Step 1:app 发送请求</h4><p>当你使用你的微信账号（或者其他OAuth提供者）登录微信读书时，你会得到一个<code>client id</code>和<code>client secret</code>.</p>
+<p>当用户点击<code>微信登录</code>的按钮时，会被重定向到微信的授权页面。这是通过向授权服务器(authorization server)发送HTTPS请求，其中HTTPS请求中带有<code>client id</code>等参数。</p>
+<figure class="highlight groovy"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">https:</span><span class="comment">//www.weixin.com/oauth?</span></span><br><span class="line">client_id=C_1&amp; </span><br><span class="line">Redirect <span class="string">Uri:</span>com.app.read<span class="comment">//callback</span></span><br><span class="line">Response <span class="string">type:</span>code</span><br><span class="line"><span class="string">Scope:</span>Profilce</span><br></pre></td></tr></table></figure>
+
+<h4 id="Step-2-用户同意"><a href="#Step-2-用户同意" class="headerlink" title="Step 2: 用户同意"></a>Step 2: 用户同意</h4><p>当用户在授权服务器登录成功后，用户会被提示是否允许微信读书获得他账号的资料。</p>
+<h4 id="Step-3-回调"><a href="#Step-3-回调" class="headerlink" title="Step 3:回调"></a>Step 3:回调</h4><p>如果用户不同意app访问它的数据，会返回</p>
+<figure class="highlight crmsh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">com.app.<span class="keyword">read</span>//callback</span><br><span class="line"><span class="attr">error=</span>access_denied&amp; </span><br><span class="line"><span class="attr">error_description=</span>The <span class="keyword">user</span> <span class="title">did</span> not consent</span><br></pre></td></tr></table></figure>
+
+<p>如果用户同意，则返回授权码</p>
+<figure class="highlight stata"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">com.<span class="keyword">app</span>.<span class="keyword">read</span><span class="comment">//callback?code=oMsCeLvIaQm6bTrgtp7</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="Step-4-使用授权码，获得access-token"><a href="#Step-4-使用授权码，获得access-token" class="headerlink" title="Step 4:使用授权码，获得access token"></a>Step 4:使用授权码，获得access token</h4><p>获得授权码后，app向授权服务器发送请求，获得access token</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">POST</span></span><br><span class="line"><span class="attribute">www.weixin.com/oauth2/v4/token</span></span><br><span class="line"><span class="attribute">Content-Type</span>: application/x-www-form-urlencoded</span><br><span class="line">code=oMsCeLvIaQm6bTrgtp7&amp; </span><br><span class="line">client_id=C_1&amp;</span><br><span class="line">client_secret=secret123&amp;</span><br><span class="line">grant_type=authorization_code</span><br></pre></td></tr></table></figure>
+
+<h4 id="Step-5-访问数据"><a href="#Step-5-访问数据" class="headerlink" title="Step 5:访问数据"></a>Step 5:访问数据</h4><p>带上<code>access token</code>向资源服务器访问用户的数据</p>
+<h3 id="OAuth-2-0-更多的思考"><a href="#OAuth-2-0-更多的思考" class="headerlink" title="OAuth 2.0 更多的思考"></a>OAuth 2.0 更多的思考</h3><p>有的人可能疑惑，为什么在得到授权码（authentication code）之后，还要再访问一次，将授权码换成访问令牌（access token).</p>
+<p>这里涉及到2个概念</p>
+<ul>
+<li>Back channel: 高度安全的，服务器与服务器之间的通信</li>
+<li>Front channel: 安全学相对较低，浏览器/移动 app与服务器的通信</li>
+</ul>
+<p><img src="wechat_read_book_channel.jpg" alt="OAuth flow with channel"></p>
+<h2 id="相关文章"><a href="#相关文章" class="headerlink" title="相关文章"></a>相关文章</h2><p><a href="./password-storage.md">如何保存你的登录密码</a></p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/OAuth/" rel="tag"># OAuth</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/10/password-storage/" rel="prev" title="如何保存你的登录密码">
+      <i class="fa fa-chevron-left"></i> 如何保存你的登录密码
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/11/ways-of-authentication/" rel="next" title="认证的方式">
+      认证的方式 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#账号密码登录"><span class="nav-number">1.</span> <span class="nav-text">账号密码登录</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#局限"><span class="nav-number">1.1.</span> <span class="nav-text">局限</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#OAuth"><span class="nav-number">2.</span> <span class="nav-text">OAuth</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#什么是OAuth"><span class="nav-number">2.1.</span> <span class="nav-text">什么是OAuth</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#认证-Authentication-与-授权-Authorization"><span class="nav-number">2.2.</span> <span class="nav-text">认证(Authentication) 与 授权(Authorization)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#OAuth-2-0术语"><span class="nav-number">2.3.</span> <span class="nav-text">OAuth 2.0术语</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#OAuth-流程"><span class="nav-number">2.4.</span> <span class="nav-text">OAuth 流程</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Step-1-app-发送请求"><span class="nav-number">2.4.1.</span> <span class="nav-text">Step 1:app 发送请求</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Step-2-用户同意"><span class="nav-number">2.4.2.</span> <span class="nav-text">Step 2: 用户同意</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Step-3-回调"><span class="nav-number">2.4.3.</span> <span class="nav-text">Step 3:回调</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Step-4-使用授权码，获得access-token"><span class="nav-number">2.4.4.</span> <span class="nav-text">Step 4:使用授权码，获得access token</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Step-5-访问数据"><span class="nav-number">2.4.5.</span> <span class="nav-text">Step 5:访问数据</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#OAuth-2-0-更多的思考"><span class="nav-number">2.5.</span> <span class="nav-text">OAuth 2.0 更多的思考</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#相关文章"><span class="nav-number">3.</span> <span class="nav-text">相关文章</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">23</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liangyaopei" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yaopei.liang@foxmail.com" title="E-Mail → mailto:yaopei.liang@foxmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://github.com/liangyaopei" title="https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank">Github</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

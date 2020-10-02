@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liangyaopei.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Leader and Followers">
+<meta property="og:type" content="article">
+<meta property="og:title" content="分布式环境的数据复制(Replication)">
+<meta property="og:url" content="https://liangyaopei.github.io/2020/08/04/designing-data-intensive-application-replication/index.html">
+<meta property="og:site_name" content="Random walk to my blog">
+<meta property="og:description" content="Leader and Followers">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/08/04/designing-data-intensive-application-replication/leader_based_replication.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/08/04/designing-data-intensive-application-replication/snychronous_asynchronous.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/08/04/designing-data-intensive-application-replication/read_your_write.png">
+<meta property="article:published_time" content="2020-08-04T14:08:32.000Z">
+<meta property="article:modified_time" content="2020-10-02T06:51:03.874Z">
+<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:tag" content="分布式">
+<meta property="article:tag" content="复制(Replication)">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://liangyaopei.github.io/2020/08/04/designing-data-intensive-application-replication/leader_based_replication.png">
+
+<link rel="canonical" href="https://liangyaopei.github.io/2020/08/04/designing-data-intensive-application-replication/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>分布式环境的数据复制(Replication) | Random walk to my blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Random walk to my blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">my blog for sharing my knowledge,experience and viewpoint</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2020/08/04/designing-data-intensive-application-replication/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Random walk to my blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          分布式环境的数据复制(Replication)
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-08-04 22:08:32" itemprop="dateCreated datePublished" datetime="2020-08-04T22:08:32+08:00">2020-08-04</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-10-02 14:51:03" itemprop="dateModified" datetime="2020-10-02T14:51:03+08:00">2020-10-02</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="Leader-and-Followers"><a href="#Leader-and-Followers" class="headerlink" title="Leader and Followers"></a>Leader and Followers</h1><a id="more"></a> 
+
+<p>每个保存数据库的备份的节点都被称为备份节点(Replica)。如何保证不同节点的数据最终是相同的呢？<br>每次对数据库的写操作都要被备份节点处理，否则，备份数据库将不会保存相同的数据。最普遍的解决方法是基于leader的复制（leader-based replication，也被叫作master–slave replication）。工作流程如下：</p>
+<ol>
+<li><p>其中的一个备份节点被选做leader（也被叫作 master 或者 primary）。客户端是有的写数据请求都要发送到leader，先把数据写到leader的本地存储。</p>
+</li>
+<li><p>其他的备份节点被称为followers（也被叫作read replicas, slaves, secondaries, 或者 hot standbys）。当leader把数据写在它的本地存储时，leader需要把所有的数据变化，以复制日志的形式，发送到所有的followes。每个follower接受log，然后以leader写数据相同的顺序，写入自己的本地存储。</p>
+</li>
+<li><p>当客户端读取数据的时候，可以从leader或者follower读取。但是写数据的请求只能被leader接受。</p>
+</li>
+</ol>
+<p><img src="leader_based_replication.png" alt="Figure 5-1. Leader-based (master–slave) replication."></p>
+<h2 id="同步复制-vs-异步复制"><a href="#同步复制-vs-异步复制" class="headerlink" title="同步复制 vs 异步复制"></a>同步复制 vs 异步复制</h2><p>数据复制的一个重要问题是，数据是同步复制，还是异步复制的。<br><img src="snychronous_asynchronous.png" alt="Figure 5-2. Leader-based replication with one synchronous and one asynchronous fol‐ lower."><br>上图中，follower 1的复制是同步的：在leader返回成功给用户之前，leader等待follower 1确认它接受到写操作。follower 2的复制是异步的，leader只是发生了消息，没有等待follower 2的回应。</p>
+<p>同步复制的优点是follower可以拥有最新的数据备份，与leader保持一致。如果leader挂机了，数据仍然保持在follower。缺点是如果follower不返回结果给leader（follower程序崩溃，网络错误等原因），leader的写操作不能继续。leader会堵塞所有的写操作，知道follower的复制恢复正常。</p>
+<p>实践上，基于leader复制一般都是异步的。这种情况下，如果leader节点崩溃并且无法恢复，leader节点没有同步到其他follower的写操作的数据就会丢失。这意味着，一个写操作是不能保证是持久的，就是返回了成功的结果给客户端。</p>
+<h2 id="建立新的Followers"><a href="#建立新的Followers" class="headerlink" title="建立新的Followers"></a>建立新的Followers</h2><p>有时候，出于增加备份节点的数量，或者替代失效的备份节点等原因，需要建立新的followers。这时候需要保证新的follower的数据是和leader完全一致的。流程一般如下：</p>
+<ol>
+<li>在某个时间点，给leader的数据库获取一个快照(snapshot)，并且尽可能地不要锁住整个数据库。大部分的数据库支持这样的备份功能。MySQL也有对应的<a href="https://www.percona.com/doc/percona-xtrabackup/2.1/index.html" target="_blank" rel="noopener">第三方工具</a>。</li>
+<li>将快照复制到新的follower节点</li>
+<li>follower连接上leader，并且请求snapshot之后的所有的数据变化。这要求snapshot是leader的复制日志中特定位置（position）相关的。这种特定位置有不同名字，在<code>PostgreSQL</code>中叫作<code>log sequence number</code>, 在MySQL叫作<code>binlog coordinates</code></li>
+<li>当follower处理了snapshot之后的数据变化的日志后，它就跟上leader的数据，可以继续处理leader发生的数据变化。</li>
+</ol>
+<h2 id="处理节点的运行中断-Outages"><a href="#处理节点的运行中断-Outages" class="headerlink" title="处理节点的运行中断(Outages)"></a>处理节点的运行中断(Outages)</h2><p>系统中任何一个节点都有可能停止服务，可能由于系统错误，或者安装系统安全不停需要重启。我们的目标是，在一些节点失效的情况下，仍然保持系统运行。</p>
+<h3 id="Follower失效：Catch-up恢复"><a href="#Follower失效：Catch-up恢复" class="headerlink" title="Follower失效：Catch-up恢复"></a>Follower失效：Catch-up恢复</h3><p>在follower的本地磁盘中，保存着从leader接受的数据变化的日志。如果follower崩溃重启，或者与leader的网络中断,follower可以容易地从日志中恢复：从日志中获取崩溃前的日志记录，然后根据这个记录向leader请求崩溃之后的所有数据变化。当处理完这些变化之后，follower就跟上leader了。</p>
+<h3 id="Leader失效：故障切换（Failover）"><a href="#Leader失效：故障切换（Failover）" class="headerlink" title="Leader失效：故障切换（Failover）"></a>Leader失效：故障切换（Failover）</h3><p>对于leader故障的处理比较复杂，包括：选择一个follower作为新的leader，客户端需要配置，将他们的写请求发送到新的leader，其他的follower需要将处理新leader的数据变化。<br>一个自动的故障替换包括：</p>
+<ol>
+<li>确定leader节点已经失效。有很多事情能使节点失效，程序崩溃，断电，网络故障等。大多数系统使用超时(timeout)来判断节点是否失效。</li>
+<li>选择新的leader。</li>
+<li>重新配置使用新leader的系统。</li>
+</ol>
+<p>故障切换需要处理这些问题：</p>
+<ul>
+<li>如果使用了异步复制，在旧leader失效之前，新的leader可能没有接受全部的旧leader的写数据日志。后面如果旧的leader重新加入集群，就会发现有数据冲突。一般的做法是忽略旧leader的写操作，虽然这样丢失了数据。</li>
+<li>在某些情况，两个节点都相信自己是leader节点，这种情况叫做脑裂(split brain)。这是一种危险的情况，如果2个leader都接受写请求，并且没有解决冲突，数据容易丢失或者损坏。</li>
+<li>选择合适的超时时间，来觉得leader节点是否失效。过长的timeout，意味着需要过长的时间来恢复故障。如果过短，会引起不必要的故障切换。</li>
+</ul>
+<h2 id="备份日志-Replication-Log-的实现"><a href="#备份日志-Replication-Log-的实现" class="headerlink" title="备份日志(Replication Log)的实现"></a>备份日志(Replication Log)的实现</h2><p>leader节点将数据变化的备份日志发送给follower，那么，怎么实现这个备份日志了？</p>
+<h3 id="基于语句的备份"><a href="#基于语句的备份" class="headerlink" title="基于语句的备份"></a>基于语句的备份</h3><p>最简单的情况是，leader节点，记录下每条写操作的语句到日志，然后吧这份日志发送给follower。对于关系型数据库(relational database)，就是将每条<code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>语句发送给follower，follower解析并且执行这些语句。</p>
+<p>这样的备份有以下的问题：</p>
+<ul>
+<li>如果有执行语句调用了不确定的函数，例如<code>NOW()</code>获取当前时间，<code>RAND()</code>后去一个随机数，这回导致follower的执行结果与leader不一致</li>
+<li>如果使用自增的列，或者依赖于一些现有的数据库的数据(例如，<code>UPDATE ... WHERE &lt;some condition&gt;</code>)，这要求follower执行语句的顺序必须和leader一致。当同时有多个执行的事务时，这会限制follower的备份</li>
+<li>有副作用的语句（例如，触发器，存储过程，用户自定义函数等），这些会导致follower会有与leader不一样的结果</li>
+</ul>
+<h3 id="预写式（Write-ahead-log，WAL）备份"><a href="#预写式（Write-ahead-log，WAL）备份" class="headerlink" title="预写式（Write-ahead log，WAL）备份"></a>预写式（Write-ahead log，WAL）备份</h3><p>这个日志是追加式的字节序列，保存着对数据库的所有写操作。可以使用这一份日志，来进行节点间数据的复制。</p>
+<h3 id="逻辑-基于行的-日志备份"><a href="#逻辑-基于行的-日志备份" class="headerlink" title="逻辑(基于行的)日志备份"></a>逻辑(基于行的)日志备份</h3><p>关系型数据库的逻辑日志，是基于行粒度的，描述对数据库表格的写操作的一系列记录。MySQL的binlog使用的是这个方法。</p>
+<h2 id="复制延迟的问题"><a href="#复制延迟的问题" class="headerlink" title="复制延迟的问题"></a>复制延迟的问题</h2><p>节点备份的目的，除了容忍节点的失效，还是为了可扩展性（处理超出单机上限的请求），减少延迟（把节点发在离用户地址位置近的地方）。</p>
+<p>但是，从leader到follower的数据异步复制，存在复制延迟，这会导致一定时间内导致leader节点与follower节点的不一致。</p>
+<h3 id="读取用户的写操作"><a href="#读取用户的写操作" class="headerlink" title="读取用户的写操作"></a>读取用户的写操作</h3><p>当一个用户在leader节点提交了自己的写操作，然后在follower节点读取自己的刚写入的数据时。<br><img src="read_your_write.png" alt="Figure 5-3. A user makes a write, followed by a read from a stale replica. To prevent this anomaly, we need read-after-write consistency."></p>
+<p>在这种情况下，我们需要<em>read-after-write consistency<em>，也被叫做</em>read-your-writes consistency</em> 。这保证，当用户刷新页面是，总看到自己提交的更新的数据，但是不保证其他用户也能看到。</p>
+<p>实现的方法</p>
+<ul>
+<li>当读取用户可能修改的东西时，从leader节点读取；否则，从follower节点读取。这要求需要知道哪些资料是用户可能修改的。</li>
+<li>如果大部分的东西都可能被修改，这时可以记录数据的更新时间，比如更新一分钟之后，从follower节点读取数据。</li>
+<li></li>
+</ul>
+<h3 id="单调读（Monotonic-Reads"><a href="#单调读（Monotonic-Reads" class="headerlink" title="单调读（Monotonic Reads)"></a>单调读（Monotonic Reads)</h3><h3 id="一致顺序读（Consistent-Prefix-Reads）"><a href="#一致顺序读（Consistent-Prefix-Reads）" class="headerlink" title="一致顺序读（Consistent Prefix Reads）"></a>一致顺序读（Consistent Prefix Reads）</h3>
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag"># 分布式</a>
+              <a href="/tags/%E5%A4%8D%E5%88%B6-Replication/" rel="tag"># 复制(Replication)</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/08/01/hyperloglog/" rel="prev" title="HyperLogLog原理以及Golang实现">
+      <i class="fa fa-chevron-left"></i> HyperLogLog原理以及Golang实现
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/08/15/golang-gc-trick/" rel="next" title="Golang的GC性能优化技巧">
+      Golang的GC性能优化技巧 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Leader-and-Followers"><span class="nav-number">1.</span> <span class="nav-text">Leader and Followers</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#同步复制-vs-异步复制"><span class="nav-number">1.1.</span> <span class="nav-text">同步复制 vs 异步复制</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#建立新的Followers"><span class="nav-number">1.2.</span> <span class="nav-text">建立新的Followers</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#处理节点的运行中断-Outages"><span class="nav-number">1.3.</span> <span class="nav-text">处理节点的运行中断(Outages)</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Follower失效：Catch-up恢复"><span class="nav-number">1.3.1.</span> <span class="nav-text">Follower失效：Catch-up恢复</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Leader失效：故障切换（Failover）"><span class="nav-number">1.3.2.</span> <span class="nav-text">Leader失效：故障切换（Failover）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#备份日志-Replication-Log-的实现"><span class="nav-number">1.4.</span> <span class="nav-text">备份日志(Replication Log)的实现</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#基于语句的备份"><span class="nav-number">1.4.1.</span> <span class="nav-text">基于语句的备份</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#预写式（Write-ahead-log，WAL）备份"><span class="nav-number">1.4.2.</span> <span class="nav-text">预写式（Write-ahead log，WAL）备份</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#逻辑-基于行的-日志备份"><span class="nav-number">1.4.3.</span> <span class="nav-text">逻辑(基于行的)日志备份</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#复制延迟的问题"><span class="nav-number">1.5.</span> <span class="nav-text">复制延迟的问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#读取用户的写操作"><span class="nav-number">1.5.1.</span> <span class="nav-text">读取用户的写操作</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#单调读（Monotonic-Reads"><span class="nav-number">1.5.2.</span> <span class="nav-text">单调读（Monotonic Reads)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#一致顺序读（Consistent-Prefix-Reads）"><span class="nav-number">1.5.3.</span> <span class="nav-text">一致顺序读（Consistent Prefix Reads）</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">23</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liangyaopei" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yaopei.liang@foxmail.com" title="E-Mail → mailto:yaopei.liang@foxmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://github.com/liangyaopei" title="https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank">Github</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

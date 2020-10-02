@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liangyaopei.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文基于Golang 1.14  用法以及注意事项Go blog中介绍了map的基本用法。在Go blog之外，这里介绍几个值得注意的点。 map作为集合(set)在Golang中，没有集合的类型。所以一般是把map当做集合来用。看下面例子 1234567func main()&amp;#123;    &#x2F;&#x2F; 预分配内存    set :&#x3D; make(map[int]bool,10)    for i">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Golang Map解析：用法，源码分析">
+<meta property="og:url" content="https://liangyaopei.github.io/2020/07/13/golang-map/index.html">
+<meta property="og:site_name" content="Random walk to my blog">
+<meta property="og:description" content="本文基于Golang 1.14  用法以及注意事项Go blog中介绍了map的基本用法。在Go blog之外，这里介绍几个值得注意的点。 map作为集合(set)在Golang中，没有集合的类型。所以一般是把map当做集合来用。看下面例子 1234567func main()&amp;#123;    &#x2F;&#x2F; 预分配内存    set :&#x3D; make(map[int]bool,10)    for i">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/07/13/golang-map/map_bucket.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/07/13/golang-map/map_bucket_bit.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/07/13/golang-map/top_hash_bucket.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/07/13/golang-map/bucket_kvkv.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/07/13/golang-map/bucket_kkvv.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/07/13/golang-map/bucket_overflow.png">
+<meta property="article:published_time" content="2020-07-13T10:14:17.000Z">
+<meta property="article:modified_time" content="2020-10-02T06:51:03.882Z">
+<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:tag" content="Golang">
+<meta property="article:tag" content="Map">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://liangyaopei.github.io/2020/07/13/golang-map/map_bucket.png">
+
+<link rel="canonical" href="https://liangyaopei.github.io/2020/07/13/golang-map/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Golang Map解析：用法，源码分析 | Random walk to my blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Random walk to my blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">my blog for sharing my knowledge,experience and viewpoint</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2020/07/13/golang-map/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Random walk to my blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Golang Map解析：用法，源码分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-13 18:14:17" itemprop="dateCreated datePublished" datetime="2020-07-13T18:14:17+08:00">2020-07-13</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-10-02 14:51:03" itemprop="dateModified" datetime="2020-10-02T14:51:03+08:00">2020-10-02</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Golang/" itemprop="url" rel="index"><span itemprop="name">Golang</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote>
+<p>本文基于Golang 1.14</p>
+</blockquote>
+<h2 id="用法以及注意事项"><a href="#用法以及注意事项" class="headerlink" title="用法以及注意事项"></a>用法以及注意事项</h2><p><a href="https://blog.golang.org/maps" target="_blank" rel="noopener">Go blog</a>中介绍了<code>map</code>的基本用法。在Go blog之外，这里介绍几个值得注意的点。</p>
+<h3 id="map作为集合-set"><a href="#map作为集合-set" class="headerlink" title="map作为集合(set)"></a>map作为集合(set)</h3><p>在<code>Golang</code>中，没有集合的类型。所以一般是把<code>map</code>当做集合来用。<br>看下面例子</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="comment">// 预分配内存</span></span><br><span class="line">    set := <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">int</span>]<span class="keyword">bool</span>,<span class="number">10</span>)</span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">10</span>; i++&#123;</span><br><span class="line">        set[i] = <span class="literal">true</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其实对例子进行优化，不使用<code>bool</code>类型，来节省空间。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="comment">// 预分配内存</span></span><br><span class="line">    set := <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">int</span>]<span class="keyword">struct</span>&#123;&#125;,<span class="number">10</span>)</span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">10</span>; i++&#123;</span><br><span class="line">        set[i] = <span class="keyword">struct</span>&#123;&#125;&#123;&#125;</span><br><span class="line">    &#125;</span><br><span class="line">    _,ok := set(<span class="number">1</span>)</span><br><span class="line">    <span class="comment">// 存在</span></span><br><span class="line">    <span class="keyword">if</span> ok &#123;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>使用空的结构体<code>struct{}</code>，会比使用<code>byte</code>节省空间。经过编译器的优化，<code>struct{}</code>指向<code>runtime.zerobase</code>，不占用空间。</p>
+<a id="more"></a> 
+
+<h3 id="map中找不到对应的key，返回默认值"><a href="#map中找不到对应的key，返回默认值" class="headerlink" title="map中找不到对应的key，返回默认值"></a>map中找不到对应的key，返回默认值</h3><p>当出现的key在<code>map</code>中不存在时，map返回的value是它的默认值。<br>看下面一个例子。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> <span class="string">"fmt"</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> Value <span class="keyword">struct</span> &#123;</span><br><span class="line">	Age      <span class="keyword">int</span></span><br><span class="line">	pro      []<span class="keyword">int</span></span><br><span class="line">	InnerMap <span class="keyword">map</span>[<span class="keyword">int</span>]<span class="keyword">int</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	vmap := <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">int</span>]Value)</span><br><span class="line">	key := <span class="number">1</span></span><br><span class="line">	value, ok := vmap[key]</span><br><span class="line">	<span class="keyword">if</span> !ok &#123;</span><br><span class="line">		fmt.Printf(<span class="string">"key %d not exist\n"</span>, key)</span><br><span class="line">		fmt.Printf(<span class="string">"%+v\n"</span>, value)</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>运行结果是</p>
+<figure class="highlight css"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="selector-tag">key</span> 1 <span class="selector-tag">not</span> <span class="selector-tag">exist</span></span><br><span class="line">&#123;<span class="attribute">Age</span>:<span class="number">0</span> pro:[] InnerMap:map[]&#125;</span><br></pre></td></tr></table></figure>
+<p>key(1)在map中不存在，返回的结构体是一个初始值为0的结构体。</p>
+<h3 id="map作为函数参数"><a href="#map作为函数参数" class="headerlink" title="map作为函数参数"></a>map作为函数参数</h3><p>我们知道，如果把一个切片(slice)传给函数，在函数中使用<code>append</code>改变slice的值，在调用完函数后, 切片的值不会改变。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	s := <span class="built_in">make</span>([]<span class="keyword">int</span>, <span class="number">0</span>)</span><br><span class="line">	changeSlice(s)</span><br><span class="line">	fmt.Printf(<span class="string">"slice:%v"</span>, s)</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">changeSlice</span><span class="params">(s []<span class="keyword">int</span>)</span></span> &#123;</span><br><span class="line">	<span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">3</span>; i++ &#123;</span><br><span class="line">		s = <span class="built_in">append</span>(s, i)</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// Result</span></span><br><span class="line"><span class="comment">// slice:[]</span></span><br></pre></td></tr></table></figure>
+<p>这是由slice的结构决定的，在<a href="https://github.com/golang/go/blob/master/src/reflect/value.go" target="_blank" rel="noopener">reflect/value.go</a>中，</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// SliceHeader is the runtime representation of a slice.</span></span><br><span class="line"><span class="comment">// It cannot be used safely or portably and its representation may</span></span><br><span class="line"><span class="comment">// change in a later release.</span></span><br><span class="line"><span class="comment">// Moreover, the Data field is not sufficient to guarantee the data</span></span><br><span class="line"><span class="comment">// it references will not be garbage collected, so programs must keep</span></span><br><span class="line"><span class="comment">// a separate, correctly typed pointer to the underlying data.</span></span><br><span class="line"><span class="keyword">type</span> SliceHeader <span class="keyword">struct</span> &#123;</span><br><span class="line">	Data <span class="keyword">uintptr</span></span><br><span class="line">	Len  <span class="keyword">int</span></span><br><span class="line">	Cap  <span class="keyword">int</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>Golang</code>中，<code>slice</code>是一个结构体，函数传参是值传递，<code>slice</code>被 copy 后，会成为一个新的slice(Data指针被修改)，对它进行的操作不会影响到实参。</p>
+<p>与<code>slice</code>不同的是，<code>map</code>是一个<code>hmap</code>结构体的指针，作为函数参数传递的话，传递的是指针(*hmap)。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	m := <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">int</span>]<span class="keyword">int</span>, <span class="number">0</span>)</span><br><span class="line">	changeMap(m)</span><br><span class="line">	fmt.Printf(<span class="string">"map:%v"</span>, m)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">changeMap</span><span class="params">(m <span class="keyword">map</span>[<span class="keyword">int</span>]<span class="keyword">int</span>)</span></span> &#123;</span><br><span class="line">	<span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">3</span>; i++ &#123;</span><br><span class="line">		m[i] = i</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// Result</span></span><br><span class="line"><span class="comment">// map:map[0:0 1:1 2:2]</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="键-key-的类型与Golang类型的可比较性"><a href="#键-key-的类型与Golang类型的可比较性" class="headerlink" title="键(key)的类型与Golang类型的可比较性"></a>键(key)的类型与Golang类型的可比较性</h3><p><code>Golang</code>中，<code>map</code>的键(key)类型必须在可比较(comparable)的。<a href="https://golang.org/ref/spec#Comparison_operators" target="_blank" rel="noopener">Golang的比较运算符</a>中描述，<code>==</code>和<code>!=</code>是比较运算符，并且</p>
+<ul>
+<li><code>channel</code>类型是可比较（comparable）的。当两个<code>channel</code>由同一个<code>make</code>函数创建，或者两个的值都是空，两个<code>channel</code>相等。</li>
+<li>当<code>struct</code>的字段(field)都是可比较（comparable）的时候，<code>struct</code>类型是可比较的。当结构体对应的非空的字段都相等时，两个结构体相等。</li>
+<li>接口(Interface)类型的变量是可比较（comparable）的。当两个变量，类型相同，值相等，或者都为<code>nil</code>时，两个接口类型的变量相等。</li>
+<li>当Array中的元素是可比较（comparable)的，Array类型的变量是可比较（comparable）。两个<code>Array</code>变量相等，当每个对应的元素相等。</li>
+</ul>
+<p>下面是一个结构体类型作为key的例子</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Key <span class="keyword">struct</span> &#123;</span><br><span class="line">    Path, Country <span class="keyword">string</span></span><br><span class="line">&#125;</span><br><span class="line">hits := <span class="built_in">make</span>(<span class="keyword">map</span>[Key]<span class="keyword">int</span>)</span><br></pre></td></tr></table></figure>
+
+<h3 id="map的迭代顺序"><a href="#map的迭代顺序" class="headerlink" title="map的迭代顺序"></a>map的迭代顺序</h3><p>使用<code>for range</code>遍历map时，两次变量的顺序不一定是相同的。如果需要稳定的变量顺序，要先遍历一下，记录下key的属性，再按照记录的顺序去遍历。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> <span class="string">"sort"</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> m <span class="keyword">map</span>[<span class="keyword">int</span>]<span class="keyword">string</span></span><br><span class="line"><span class="keyword">var</span> keys []<span class="keyword">int</span></span><br><span class="line"><span class="keyword">for</span> k := <span class="keyword">range</span> m &#123;</span><br><span class="line">    keys = <span class="built_in">append</span>(keys, k)</span><br><span class="line">&#125;</span><br><span class="line">sort.Ints(keys)</span><br><span class="line"><span class="keyword">for</span> _, k := <span class="keyword">range</span> keys &#123;</span><br><span class="line">    fmt.Println(<span class="string">"Key:"</span>, k, <span class="string">"Value:"</span>, m[k])</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="散列-hash-和碰撞-collision"><a href="#散列-hash-和碰撞-collision" class="headerlink" title="散列(hash)和碰撞(collision)"></a>散列(hash)和碰撞(collision)</h2><p><code>hash</code>(散列)是指将任意的值转换成固定长度的值，例如信息摘要算法MD5，SHA等。在Golang中，<code>map</code>接受任意长度比特（bit）的输入，将其转换为64bit的长度。<a href="https://github.com/golang/go/blob/dev.boringcrypto.go1.14/src/runtime/hash64.go" target="_blank" rel="noopener">hash函数实现</a><br>在<code>hash64.go</code>代码中，函数参数有一个<code>seed</code>参数，这是为了让产生的hash值更加随机，避免<a href="https://www.zhihu.com/question/286529973" target="_blank" rel="noopener">hash洪水攻击</a></p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">memhashFallback</span><span class="params">(p unsafe.Pointer, seed, s <span class="keyword">uintptr</span>)</span> <span class="title">uintptr</span></span> &#123;</span><br><span class="line">	h := <span class="keyword">uint64</span>(seed + s*hashkey[<span class="number">0</span>])</span><br><span class="line">	...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>hash洪水攻击，利用的是map的散列碰撞。假设我们想要连续插入n个元素到哈希表中：</p>
+<ul>
+<li>这些元素的键（Key）极少出现相同哈希值，需要 <code>O(n)</code> 的时间。</li>
+<li>这些键频繁出现相同的哈希值（频繁发生碰撞），如果采用的是hash重定位的方法，最差需要<code>O(n^2)</code>的时间；如果采用链表法，也需要大于<code>O(n)</code>的时间。<br>当攻击者根据hash算法不断构造会发生碰撞的键，就会是map的性能下降。通过添加一个随机的seed，让攻击者难以产生碰撞的key。</li>
+</ul>
+<h2 id="LoadFactor"><a href="#LoadFactor" class="headerlink" title="LoadFactor"></a>LoadFactor</h2><p>负载因子（load factor）指的是当一个哈希表（hash table)中的桶(bucket)达到阈值，哈希表会进行容量的调整。<br>下图中，<code>[]bmap</code>的长度就是桶(bucket)的数量，每个bucket的后面是一个链表。假设bucket的数量为<code>BN</code>，map中键值对数据为<code>PN</code>。</p>
+<ol>
+<li>当<code>PN</code>&lt;<code>BN</code>,这时候没有键的碰撞，平均查找时间为<code>O(1)</code>。</li>
+<li>当<code>PN</code>&gt;<code>BN</code>时，查找为为2步。第一步是确定bucket的位置，第二步是遍历bucket的链表。<br><code>PN</code>/<code>BN</code>的比值就是负载因子。<br><img src="map_bucket.png" alt="map bucket"><br>Golang的map中，负载因子是6.5，这是写在代码里的。<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> (</span><br><span class="line">	<span class="comment">// Maximum average load of a bucket that triggers growth is 6.5.</span></span><br><span class="line">	<span class="comment">// Represent as loadFactorNum/loadFactDen, to allow integer math.</span></span><br><span class="line">	loadFactorNum = <span class="number">13</span></span><br><span class="line">	loadFactorDen = <span class="number">2</span></span><br><span class="line">	）</span><br></pre></td></tr></table></figure>
+
+</li>
+</ol>
+<h2 id="map的实现"><a href="#map的实现" class="headerlink" title="map的实现"></a>map的实现</h2><h3 id="hash"><a href="#hash" class="headerlink" title="hash"></a>hash</h3><p>Golang中，<code>map</code>是对<code>hmap</code>结构体的指针，它是可变的(mutable)。<a href="https://github.com/golang/go/blob/master/src/runtime/map.go" target="_blank" rel="noopener">具体实现</a>。<br>为了避免攻击者构造的hash碰撞，每个map的hash都会基于一个随机的种子(seed)，所以每个map都是不同的。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">h.hash0 = fastrand()</span><br></pre></td></tr></table></figure>
+<p>此外，如上文所说的，map的遍历是无序的。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	m := <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">int</span>]<span class="keyword">int</span>)</span><br><span class="line">	<span class="keyword">for</span> j := <span class="number">0</span>; j &lt; <span class="number">10</span>; j++ &#123;</span><br><span class="line">		m[j] = j * <span class="number">2</span></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span> k, v := <span class="keyword">range</span> m &#123;</span><br><span class="line">		fmt.Printf(<span class="string">"%d*2=%d "</span>, k, v)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	fmt.Printf(<span class="string">"\n - - -\n"</span>)</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span> k, v := <span class="keyword">range</span> m &#123;</span><br><span class="line">		fmt.Printf(<span class="string">"%d*2=%d "</span>, k, v)</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>插入一个元素时，先生成一个散列值。golang使用散列值（hash value）后面的字节（byte）来确定在哪一个bucket。<code>h.B</code>是bucket数量的<code>log_2</code>。<br><img src="map_bucket_bit.png" alt="map bucket bit"></p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">bucket := hash &amp; bucketMask(h.B)</span><br></pre></td></tr></table></figure>
+<p>当确定了选择哪一个bucket，接下来就要确定bucket里面的位置。每个bucket使用散列值（hash value）前面的字节（byte）（top hash）来确定在bucket内部列表的顺序。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// tophash calculates the tophash value for hash.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">tophash</span><span class="params">(hash <span class="keyword">uintptr</span>)</span> <span class="title">uint8</span></span> &#123;</span><br><span class="line">	top := <span class="keyword">uint8</span>(hash &gt;&gt; (sys.PtrSize*<span class="number">8</span> - <span class="number">8</span>))</span><br><span class="line">	<span class="keyword">if</span> top &lt; minTopHash &#123;</span><br><span class="line">		top += minTopHash</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> top</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><img src="top_hash_bucket.png" alt="top hash bucket"></p>
+<h3 id="bucket的填充-padding"><a href="#bucket的填充-padding" class="headerlink" title="bucket的填充(padding)"></a>bucket的填充(padding)</h3><p>Golang,每个bucket包含8个键值对，并且是先保存key，早保存value。这是为了减少填充使用的内存空间。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// A bucket for a Go map.</span></span><br><span class="line"><span class="keyword">type</span> bmap <span class="keyword">struct</span> &#123;</span><br><span class="line">	<span class="comment">// tophash generally contains the top byte of the hash value</span></span><br><span class="line">	<span class="comment">// for each key in this bucket. If tophash[0] &lt; minTopHash,</span></span><br><span class="line">	<span class="comment">// tophash[0] is a bucket evacuation state instead.</span></span><br><span class="line">	tophash [bucketCnt]<span class="keyword">uint8</span></span><br><span class="line">	<span class="comment">// Followed by bucketCnt keys and then bucketCnt elems.</span></span><br><span class="line">	<span class="comment">// <span class="doctag">NOTE:</span> packing all the keys together and then all the elems together makes the</span></span><br><span class="line">	<span class="comment">// code a bit more complicated than alternating key/elem/key/elem/... but it allows</span></span><br><span class="line">	<span class="comment">// us to eliminate padding which would be needed for, e.g., map[int64]int8.</span></span><br><span class="line">	<span class="comment">// Followed by an overflow pointer.</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如果是key/value/key/value的bucket:<br><img src="bucket_kvkv.png" alt="bucket kvkv"><br>如果是key/key/value/value的bucket:<br><img src="bucket_kkvv.png" alt="bucket kkvv"></p>
+<h3 id="map-增长"><a href="#map-增长" class="headerlink" title="map 增长"></a>map 增长</h3><p>一个bucket有8个键值对，当bucket的位置填满的时候，就会创建一个overflow的bucket，跟在现在bucket的后面。<br><img src="bucket_overflow.png" alt="bucket overflow"><br>然而，overflow的bucket增多会降低map的性能。因此，当bucket的数量大于bmap长度的6.5(负载因子)时，map就会增长。bmap的长度变为原来的2倍。map的增长会保留现有的bucket和旧的bucket，并且会在写的过程中对bucket进行驱逐(evacuate)。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// A header for a Go map.</span></span><br><span class="line"><span class="keyword">type</span> hmap <span class="keyword">struct</span> &#123;</span><br><span class="line">	...</span><br><span class="line">	buckets    unsafe.Pointer <span class="comment">// array of 2^B Buckets. may be nil if count==0.</span></span><br><span class="line">	oldbuckets unsafe.Pointer <span class="comment">// previous bucket array of half the size, non-nil only when growing</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>代码中map增长的检查</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">overLoadFactor(h.count+<span class="number">1</span>, h.B) || tooManyOverflowBuckets(h.noverflow, h.B)</span><br></pre></td></tr></table></figure>
+<p>第一个检查是否bucket数量超过了负载因子。<br>第二个检查是bucket中元素的数量，看是否超过了8个。</p>
+<h3 id="map-不能并发写"><a href="#map-不能并发写" class="headerlink" title="map 不能并发写"></a>map 不能并发写</h3><p>Golang的map是不能并发地写的。如果同时多个go routine进行读写，会出现<code>concurrent map writes</code>的错误。这是通过<code>hmap</code>的<code>flags</code>来实现的。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">mapdelete</span><span class="params">(t *maptype, h *hmap, key unsafe.Pointer)</span></span> &#123;</span><br><span class="line">   [...]</span><br><span class="line">   <span class="comment">// 如果别的go routine在并发写，报错</span></span><br><span class="line">   <span class="keyword">if</span> h.flags&amp;hashWriting != <span class="number">0</span> &#123;</span><br><span class="line">      throw(<span class="string">"concurrent map writes"</span>)</span><br><span class="line">   &#125;</span><br><span class="line">   [...]</span><br><span class="line">   <span class="comment">// 没有其他写，将flag置位</span></span><br><span class="line">   h.flags ^= hashWriting</span><br><span class="line">   [...]</span><br><span class="line">   <span class="comment">// flag恢复</span></span><br><span class="line">   h.flags &amp;^= hashWriting</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>一些flag的标志</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> (</span><br><span class="line"><span class="comment">// flags</span></span><br><span class="line">	iterator     = <span class="number">1</span> <span class="comment">// there may be an iterator using buckets</span></span><br><span class="line">	oldIterator  = <span class="number">2</span> <span class="comment">// there may be an iterator using oldbuckets</span></span><br><span class="line">	hashWriting  = <span class="number">4</span> <span class="comment">// a goroutine is writing to the map</span></span><br><span class="line">	sameSizeGrow = <span class="number">8</span> <span class="comment">// the current map growth is to a new map of the same size</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Golang/" rel="tag"># Golang</a>
+              <a href="/tags/Map/" rel="tag"># Map</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/12/golang-defer-analysis/" rel="prev" title="Goalng defer解析：用法，源码分析">
+      <i class="fa fa-chevron-left"></i> Goalng defer解析：用法，源码分析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/22/golang-struct-to-map/" rel="next" title="Golang反射：结构体(struct) 转化成map">
+      Golang反射：结构体(struct) 转化成map <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#用法以及注意事项"><span class="nav-number">1.</span> <span class="nav-text">用法以及注意事项</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#map作为集合-set"><span class="nav-number">1.1.</span> <span class="nav-text">map作为集合(set)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#map中找不到对应的key，返回默认值"><span class="nav-number">1.2.</span> <span class="nav-text">map中找不到对应的key，返回默认值</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#map作为函数参数"><span class="nav-number">1.3.</span> <span class="nav-text">map作为函数参数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#键-key-的类型与Golang类型的可比较性"><span class="nav-number">1.4.</span> <span class="nav-text">键(key)的类型与Golang类型的可比较性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#map的迭代顺序"><span class="nav-number">1.5.</span> <span class="nav-text">map的迭代顺序</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#散列-hash-和碰撞-collision"><span class="nav-number">2.</span> <span class="nav-text">散列(hash)和碰撞(collision)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#LoadFactor"><span class="nav-number">3.</span> <span class="nav-text">LoadFactor</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#map的实现"><span class="nav-number">4.</span> <span class="nav-text">map的实现</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#hash"><span class="nav-number">4.1.</span> <span class="nav-text">hash</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#bucket的填充-padding"><span class="nav-number">4.2.</span> <span class="nav-text">bucket的填充(padding)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#map-增长"><span class="nav-number">4.3.</span> <span class="nav-text">map 增长</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#map-不能并发写"><span class="nav-number">4.4.</span> <span class="nav-text">map 不能并发写</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">23</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liangyaopei" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yaopei.liang@foxmail.com" title="E-Mail → mailto:yaopei.liang@foxmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://github.com/liangyaopei" title="https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank">Github</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

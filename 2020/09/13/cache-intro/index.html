@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liangyaopei.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="缓存(cache)利用是空间局部性(Locality of reference)：最近被访问的元素很有可能在将来也被访问，从而将结果缓存起来，避免更加耗时的查询（例如，数据库的查询操作，网页图片，网页格式的加载等）。本文主要讲对数据库查询的缓存。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="缓存(cache)介绍">
+<meta property="og:url" content="https://liangyaopei.github.io/2020/09/13/cache-intro/index.html">
+<meta property="og:site_name" content="Random walk to my blog">
+<meta property="og:description" content="缓存(cache)利用是空间局部性(Locality of reference)：最近被访问的元素很有可能在将来也被访问，从而将结果缓存起来，避免更加耗时的查询（例如，数据库的查询操作，网页图片，网页格式的加载等）。本文主要讲对数据库查询的缓存。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/09/13/cache-intro/write_through.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/09/13/cache-intro/write_back.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/09/13/cache-intro/write_around.png">
+<meta property="article:published_time" content="2020-09-13T02:14:06.000Z">
+<meta property="article:modified_time" content="2020-10-02T06:51:03.867Z">
+<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:tag" content="Cache">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://liangyaopei.github.io/2020/09/13/cache-intro/write_through.png">
+
+<link rel="canonical" href="https://liangyaopei.github.io/2020/09/13/cache-intro/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>缓存(cache)介绍 | Random walk to my blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Random walk to my blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">my blog for sharing my knowledge,experience and viewpoint</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2020/09/13/cache-intro/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Random walk to my blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          缓存(cache)介绍
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-09-13 10:14:06" itemprop="dateCreated datePublished" datetime="2020-09-13T10:14:06+08:00">2020-09-13</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-10-02 14:51:03" itemprop="dateModified" datetime="2020-10-02T14:51:03+08:00">2020-10-02</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>缓存(cache)利用是空间局部性(Locality of reference)：最近被访问的元素很有可能在将来也被访问，从而将结果缓存起来，避免更加耗时的查询（例如，数据库的查询操作，网页图片，网页格式的加载等）。<br>本文主要讲对数据库查询的缓存。</p>
+<a id="more"></a> 
+
+
+<h2 id="缓存的核心概念"><a href="#缓存的核心概念" class="headerlink" title="缓存的核心概念"></a>缓存的核心概念</h2><h3 id="存活时间（TTL，Time-To-Live）"><a href="#存活时间（TTL，Time-To-Live）" class="headerlink" title="存活时间（TTL，Time To Live）"></a>存活时间（TTL，Time To Live）</h3><p>缓存里面的每条记录都有一个存活时间，当超过存活时间，缓存就会失效。</p>
+<h3 id="逐出策略-Eviction-Policy"><a href="#逐出策略-Eviction-Policy" class="headerlink" title="逐出策略(Eviction Policy)"></a>逐出策略(Eviction Policy)</h3><p>当某个时间点，缓存满了，而且里面的记录还没有超过存活时间。这时候，需要逐出缓存里面的一些记录, 腾出空间来容纳新的记录，使得留下的记录在将来更有可能被访问。这时候，就需要缓存的逐出策略。</p>
+<h4 id="LRU-Least-Recently-Used"><a href="#LRU-Least-Recently-Used" class="headerlink" title="LRU (Least Recently Used)"></a>LRU (Least Recently Used)</h4><p>LRU是最近最少使用，当缓存满了，会先移除缓存中最近最少使用的记录。</p>
+<h4 id="LFU-Least-Frequently-Used"><a href="#LFU-Least-Frequently-Used" class="headerlink" title="LFU (Least Frequently Used)"></a>LFU (Least Frequently Used)</h4><p>LFU是最少频繁使用，它会保存缓存中每条记录被访问的次数，优先移除访问次数最少的记录。</p>
+<h5 id="MRU-Most-Recently-Used"><a href="#MRU-Most-Recently-Used" class="headerlink" title="MRU (Most Recently Used)"></a>MRU (Most Recently Used)</h5><p>MRU是最近最多使用，当缓存满了，会先移除缓存中最近使用最多的记录。</p>
+<h2 id="缓存更新的策略"><a href="#缓存更新的策略" class="headerlink" title="缓存更新的策略"></a>缓存更新的策略</h2><h3 id="Write-Through-Cache"><a href="#Write-Through-Cache" class="headerlink" title="Write Through Cache"></a>Write Through Cache</h3><p>策略：每次数据的更新，都是同时写到缓存和数据库。<br>这样的优点是保持了数据库和缓存数据的同步，每次读缓存都能读到最近的数据。缺点是增加了系统进行更新操作的时间。<br>这个策略不适用于更新操作频繁的系统。适用于一旦写入数据库，需要重复读取数据的系统。<br>下面是<a href="https://en.wikipedia.org/wiki/Cache_(computing)" target="_blank" rel="noopener">维基百科</a>的图示。<br><img src="write_through.png" alt="write through"></p>
+<h3 id="Write-Back-Cache"><a href="#Write-Back-Cache" class="headerlink" title="Write Back Cache"></a>Write Back Cache</h3><p>策略：每次数据的更新，先写到缓存，然后启动异步任务，定时将缓存中被修改的数据同步到数据库。<br>这个策略没有Write Through Cache的缺点。因为每次的更新操作都是只是更新缓存，更新的速度会加快，而且，因为是批量更新数据库，从而更新数据库的效率会提高。<br>缺点是，这会导致数据库和缓存的数据存在迟延，如果缓存挂了，会导致数据丢失。<br><img src="write_back.png" alt="write back"></p>
+<h3 id="Write-Around"><a href="#Write-Around" class="headerlink" title="Write Around"></a>Write Around</h3><p>这是最常用的策略了。<br>策略：每次数据的更新，先把数据存到数据库中，成功后，再让缓存失效。<br><img src="write_around.png" alt="write around"></p>
+<p>在这里，为什么不是写完数据库后更新缓存？这主要是怕两个并发的写操作导致脏数据。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>更新操作A</th>
+<th>更新操作B</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>T1</td>
+<td>数据库: set a = 1</td>
+<td></td>
+</tr>
+<tr>
+<td>T2</td>
+<td></td>
+<td>数据库: set a=2</td>
+</tr>
+<tr>
+<td>T3</td>
+<td></td>
+<td>缓存：set a = 2</td>
+</tr>
+<tr>
+<td>T4</td>
+<td>缓存：set a = 1</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>可以看到，更新操作A，最终将缓存的值和数据库的实际值不对应，这属于将错误的值加载入缓存。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Cache/" rel="tag"># Cache</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/08/30/golang-ecsape/" rel="prev" title="Golang的逃逸分析">
+      <i class="fa fa-chevron-left"></i> Golang的逃逸分析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/10/02/goroutine-id/" rel="next" title="获取Goroutine的ID">
+      获取Goroutine的ID <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#缓存的核心概念"><span class="nav-number">1.</span> <span class="nav-text">缓存的核心概念</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#存活时间（TTL，Time-To-Live）"><span class="nav-number">1.1.</span> <span class="nav-text">存活时间（TTL，Time To Live）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#逐出策略-Eviction-Policy"><span class="nav-number">1.2.</span> <span class="nav-text">逐出策略(Eviction Policy)</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#LRU-Least-Recently-Used"><span class="nav-number">1.2.1.</span> <span class="nav-text">LRU (Least Recently Used)</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#LFU-Least-Frequently-Used"><span class="nav-number">1.2.2.</span> <span class="nav-text">LFU (Least Frequently Used)</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#MRU-Most-Recently-Used"><span class="nav-number">1.2.2.1.</span> <span class="nav-text">MRU (Most Recently Used)</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#缓存更新的策略"><span class="nav-number">2.</span> <span class="nav-text">缓存更新的策略</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Write-Through-Cache"><span class="nav-number">2.1.</span> <span class="nav-text">Write Through Cache</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Write-Back-Cache"><span class="nav-number">2.2.</span> <span class="nav-text">Write Back Cache</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Write-Around"><span class="nav-number">2.3.</span> <span class="nav-text">Write Around</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">23</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liangyaopei" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yaopei.liang@foxmail.com" title="E-Mail → mailto:yaopei.liang@foxmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://github.com/liangyaopei" title="https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank">Github</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
