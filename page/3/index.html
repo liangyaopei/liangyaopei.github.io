@@ -156,7 +156,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2020/07/04/Golang-Context%E8%A7%A3%E6%9E%90/">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2020/07/05/MySQL%E8%AF%AD%E5%8F%A5%E7%9A%84%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -170,7 +170,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2020/07/04/Golang-Context%E8%A7%A3%E6%9E%90/" class="post-title-link" itemprop="url">Golang Context用法以及源码分析</a>
+            <a href="/2020/07/05/MySQL%E8%AF%AD%E5%8F%A5%E7%9A%84%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9/" class="post-title-link" itemprop="url">如何优化MySQL查询语句</a>
         </h2>
 
         <div class="post-meta">
@@ -180,7 +180,7 @@
               </span>
               <span class="post-meta-item-text">发表于</span>
 
-              <time title="创建时间：2020-07-04 22:52:00" itemprop="dateCreated datePublished" datetime="2020-07-04T22:52:00+08:00">2020-07-04</time>
+              <time title="创建时间：2020-07-05 21:48:06" itemprop="dateCreated datePublished" datetime="2020-07-05T21:48:06+08:00">2020-07-05</time>
             </span>
 
           
@@ -194,12 +194,16 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <h1 id="为什么要使用context"><a href="#为什么要使用context" class="headerlink" title="为什么要使用context"></a>为什么要使用context</h1><h2 id="golang的协程泄露"><a href="#golang的协程泄露" class="headerlink" title="golang的协程泄露"></a>golang的协程泄露</h2><p>看下面的一个例子</p>
-<figure class="highlight go"><figcaption><span>[golang的协程泄露] []</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestRoutine1</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">   <span class="comment">// 创建了go routine，没有办法取消</span></span><br><span class="line">   <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">      <span class="keyword">for</span> &#123;</span><br><span class="line">         fmt.Print(<span class="string">"in go loop\n"</span>)</span><br><span class="line">      &#125;</span><br><span class="line">   &#125;()</span><br><span class="line">   <span class="comment">// do other things</span></span><br><span class="line">   time.Sleep(<span class="number">2</span> * time.Second)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>创建了<code>routine</code> A之后，主协程失去了对这个协程A的控制，在后面的运行中，协程A会一直运行，直到主协程结束。</p>
+          <h3 id="1-如果内容能被转化为数字类型，尽量使用数字类型而不是字符类型"><a href="#1-如果内容能被转化为数字类型，尽量使用数字类型而不是字符类型" class="headerlink" title="1.如果内容能被转化为数字类型，尽量使用数字类型而不是字符类型"></a>1.如果内容能被转化为数字类型，尽量使用数字类型而不是字符类型</h3><p>如果要保存IPv4地址，<br>反例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">`ip_address` VARCHAR(15) NOT NULL</span><br></pre></td></tr></table></figure>
+<p>正例。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">`ip_address` INT UNSIGNED NOT NULL</span><br></pre></td></tr></table></figure>
+<p>原因</p>
+<ul>
+<li>因为IPv4地址可以转化成一个int类型的十进制整数。转化方法：ip中的每一段转化为两位的十六进制整数。例如，<code>192.160.98.123</code>转化为十六进制数是，<code>C0</code>,<code>A0</code>,<code>62</code>,<code>7B</code>,<code>C0A0627B</code>转化为十进制数是3231736443。
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2020/07/04/Golang-Context%E8%A7%A3%E6%9E%90/#more" rel="contents">
+              <a class="btn" href="/2020/07/05/MySQL%E8%AF%AD%E5%8F%A5%E7%9A%84%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9/#more" rel="contents">
                 阅读全文 &raquo;
               </a>
             </div>
