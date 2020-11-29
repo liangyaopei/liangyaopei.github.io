@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liangyaopei.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="在Golang的日常开发中，有时候需要对struct的每个字段（field）进行校验，从而判断结构体的值是否符合条件。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Golang结构体校验">
+<meta property="og:url" content="https://liangyaopei.github.io/2020/11/29/golang-sturct-validation/index.html">
+<meta property="og:site_name" content="Random walk to my blog">
+<meta property="og:description" content="在Golang的日常开发中，有时候需要对struct的每个字段（field）进行校验，从而判断结构体的值是否符合条件。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-11-29T01:50:15.000Z">
+<meta property="article:modified_time" content="2020-11-29T02:58:01.922Z">
+<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:tag" content="Golang">
+<meta property="article:tag" content="struct validation">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liangyaopei.github.io/2020/11/29/golang-sturct-validation/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Golang结构体校验 | Random walk to my blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Random walk to my blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">my blog for sharing my knowledge,experience and viewpoint</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2020/11/29/golang-sturct-validation/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Random walk to my blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Golang结构体校验
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2020-11-29 09:50:15 / 修改时间：10:58:01" itemprop="dateCreated datePublished" datetime="2020-11-29T09:50:15+08:00">2020-11-29</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Golang/" itemprop="url" rel="index"><span itemprop="name">Golang</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>在Golang的日常开发中，有时候需要对<code>struct</code>的每个字段（field）进行校验，从而判断结构体的值是否符合条件。</p>
+<a id="more"></a> 
+
+
+<p>考虑下面的<code>profile</code>结构体：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> profile <span class="keyword">struct</span> &#123;</span><br><span class="line">	<span class="comment">// Info is pointer filed</span></span><br><span class="line">	Info      *basicInfo</span><br><span class="line">	Companies []company</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> basicInfo <span class="keyword">struct</span> &#123;</span><br><span class="line">	<span class="comment">// 1 &lt;= len &lt;= 20</span></span><br><span class="line">	Name <span class="keyword">string</span></span><br><span class="line">	<span class="comment">// 18 &lt;= age &lt;= 80</span></span><br><span class="line">	Age <span class="keyword">int</span></span><br><span class="line">	<span class="comment">// 1&lt;= len &lt;= 64</span></span><br><span class="line">	Email <span class="keyword">string</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> company <span class="keyword">struct</span> &#123;</span><br><span class="line">	<span class="comment">// frontend,backend</span></span><br><span class="line">	Position <span class="keyword">string</span></span><br><span class="line">	<span class="comment">// frontend: html,css,javascript</span></span><br><span class="line">	<span class="comment">// backend: C,Cpp,Java,Golang</span></span><br><span class="line">	<span class="comment">// SkillStack 'length is between [1,3]</span></span><br><span class="line">	Skills []<span class="keyword">string</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">getPassedProfile</span><span class="params">()</span> <span class="title">profile</span></span> &#123;</span><br><span class="line">	companies := []company&#123;</span><br><span class="line">		&#123;</span><br><span class="line">			Position: <span class="string">"frontend"</span>,</span><br><span class="line">			Skills:   []<span class="keyword">string</span>&#123;<span class="string">"html"</span>, <span class="string">"css"</span>&#125;,</span><br><span class="line">		&#125;,</span><br><span class="line">		&#123;</span><br><span class="line">			Position: <span class="string">"backend"</span>,</span><br><span class="line">			Skills:   []<span class="keyword">string</span>&#123;<span class="string">"C"</span>, <span class="string">"Golang"</span>&#125;,</span><br><span class="line">		&#125;,</span><br><span class="line">	&#125;</span><br><span class="line">	info := basicInfo&#123;Name: <span class="string">"liang"</span>, Age: <span class="number">24</span>, Email: <span class="string">"yaopei.liang@foxmail.com"</span>&#125;</span><br><span class="line">	<span class="keyword">return</span> profile&#123;</span><br><span class="line">		Info:      &amp;info,</span><br><span class="line">		Companies: companies,</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>对于<code>profile</code>类型的值，有下面的限制：</p>
+<ul>
+<li><code>Info</code>字段<ul>
+<li><code>Info</code>不为nil</li>
+<li><code>Name</code>的长度限制为[1,20]</li>
+<li><code>Age</code> 的取值范围是[18,80]</li>
+<li><code>Email</code> 的长度限制为[1,64], 并且符合邮箱的格式</li>
+</ul>
+</li>
+<li><code>Companies</code>字段<ul>
+<li><code>Position</code>只能是frontend或者backend</li>
+<li>如果<code>Position</code>是frontend, 里面的元素取值只能是 html,css,javascript.</li>
+<li>如果<code>Position</code>是backend， 里面的元素取值只能是 C,Cpp,Java,Golang.</li>
+</ul>
+</li>
+<li><code>Skills</code>的长度限制为[1,3]</li>
+</ul>
+<p>下面分别讲述使用<code>if/else</code>, gin的校验器，和<a href="https://github.com/liangyaopei/checker" target="_blank" rel="noopener">checker</a>，三个方法对结构体参数进行校验。</p>
+<h2 id="使用if-else"><a href="#使用if-else" class="headerlink" title="使用if/else"></a>使用if/else</h2><p>使用<code>if/else</code>判断‘结构体参数是否合法。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">isValidProfile</span><span class="params">(pro profile)</span> <span class="title">bool</span></span> &#123;</span><br><span class="line">  <span class="keyword">if</span> pro.Info == <span class="literal">nil</span> &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">   &#125;</span><br><span class="line">   <span class="keyword">if</span> <span class="built_in">len</span>(pro.Info.Name) &gt; <span class="number">20</span> &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">   &#125;</span><br><span class="line">   <span class="keyword">if</span> pro.Info.Age &lt; <span class="number">18</span> &amp;&amp; pro.Info.Age &gt; <span class="number">80</span> &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">   &#125;</span><br><span class="line">   <span class="keyword">if</span> <span class="built_in">len</span>(pro.Info.Email) &gt; <span class="number">64</span> &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">   &#125;</span><br><span class="line">   re := regexp.MustCompile(<span class="string">"^[a-zA-Z0-9.!#$%&amp;'*+/=?^_`&#123;|&#125;~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]&#123;0,61&#125;[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]&#123;0,61&#125;[a-zA-Z0-9])?)*$"</span>)</span><br><span class="line"></span><br><span class="line">   <span class="keyword">if</span> !re.MatchString(pro.Info.Email)&#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">   &#125;</span><br><span class="line">   <span class="keyword">for</span> _, comp := <span class="keyword">range</span> pro.Companies &#123;</span><br><span class="line">      <span class="keyword">if</span> <span class="built_in">len</span>(comp.Skills) &gt; <span class="number">3</span> &#123;</span><br><span class="line">         <span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">      &#125;</span><br><span class="line">      <span class="keyword">if</span> comp.Position != <span class="string">"frontend"</span> &amp;&amp; comp.Position != <span class="string">"backend"</span> &#123;</span><br><span class="line">         <span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">      &#125;</span><br><span class="line">      <span class="keyword">if</span> comp.Position == <span class="string">"frontend"</span> &#123;</span><br><span class="line">         <span class="keyword">for</span> _, skill := <span class="keyword">range</span> comp.Skills &#123;</span><br><span class="line">            <span class="keyword">if</span> skill != <span class="string">"html"</span> &amp;&amp; skill != <span class="string">"css"</span> &amp;&amp; skill != <span class="string">"javascript"</span> &#123;</span><br><span class="line">               <span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">            &#125;</span><br><span class="line">         &#125;</span><br><span class="line">      &#125; <span class="keyword">else</span> <span class="keyword">if</span> comp.Position == <span class="string">"backend"</span> &#123;</span><br><span class="line">         <span class="keyword">for</span> _, skill := <span class="keyword">range</span> comp.Skills &#123;</span><br><span class="line">            <span class="keyword">if</span> skill != <span class="string">"C"</span> &amp;&amp; skill != <span class="string">"Cpp"</span> &amp;&amp; skill != <span class="string">"Java"</span> &amp;&amp; skill != <span class="string">"Golang"</span> &#123;</span><br><span class="line">               <span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">            &#125;</span><br><span class="line">         &#125;</span><br><span class="line">      &#125;</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="keyword">return</span> <span class="literal">true</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到，对于上述的校验规则，可能需要写大段的<code>if/else</code>判断语句，当语句太长时，不适合阅读，并且与结构体强耦合。</p>
+<h2 id="使用gin的validatior"><a href="#使用gin的validatior" class="headerlink" title="使用gin的validatior"></a>使用gin的validatior</h2><p><code>gin</code>的校验器是来自于<code>go.pkg</code>的<a href="https://gopkg.in/go-playground/validator.v10" target="_blank" rel="noopener">validator</a>,它是通过在结构体的字段添加标签(tag)，来校验结构体。</p>
+<p><code>profile</code>结构体要改造成：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> profile <span class="keyword">struct</span> &#123;</span><br><span class="line">	Info      *basicInfo </span><br><span class="line">	Companies []company  <span class="string">`validate:"dive,min=1,max=3"`</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> basicInfo <span class="keyword">struct</span> &#123;</span><br><span class="line">	Name  <span class="keyword">string</span> <span class="string">`validate:"min=1,max=20"`</span></span><br><span class="line">	Age   <span class="keyword">int</span>    <span class="string">`validate:"min=18,max=80"`</span></span><br><span class="line">	Email <span class="keyword">string</span> <span class="string">`validate:"min=1,max=64,email"`</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> company <span class="keyword">struct</span> &#123;</span><br><span class="line">	<span class="comment">// frontend,backend</span></span><br><span class="line">	Position <span class="keyword">string</span></span><br><span class="line">	<span class="comment">// frontend: html,css,javascript</span></span><br><span class="line">	<span class="comment">// backend: C,Cpp,Java,Golang</span></span><br><span class="line">	Skills []<span class="keyword">string</span> <span class="string">`validate:"min=1,max=3"`</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>校验函数改为：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> 	<span class="string">"gopkg.in/go-playground/validator.v10"</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestValidator</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">	pro := getPassedProfile()</span><br><span class="line">	validate := validator.New()</span><br><span class="line">	err := validate.Struct(pro)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		t.Errorf(<span class="string">"%s"</span>, err.Error())</span><br><span class="line">		<span class="keyword">return</span></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">for</span> _, comp := <span class="keyword">range</span> pro.Companies &#123;</span><br><span class="line">		<span class="keyword">if</span> comp.Position != <span class="string">"frontend"</span> &amp;&amp; comp.Position != <span class="string">"backend"</span> &#123;</span><br><span class="line">			t.Error(<span class="string">"failed"</span>)</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">if</span> comp.Position == <span class="string">"frontend"</span> &#123;</span><br><span class="line">			<span class="keyword">for</span> _, skill := <span class="keyword">range</span> comp.Skills &#123;</span><br><span class="line">				<span class="keyword">if</span> skill != <span class="string">"html"</span> &amp;&amp; skill != <span class="string">"css"</span> &amp;&amp; skill != <span class="string">"javascript"</span> &#123;</span><br><span class="line">					t.Error(<span class="string">"failed"</span>)</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125; <span class="keyword">else</span> <span class="keyword">if</span> comp.Position == <span class="string">"backend"</span> &#123;</span><br><span class="line">			<span class="keyword">for</span> _, skill := <span class="keyword">range</span> comp.Skills &#123;</span><br><span class="line">				<span class="keyword">if</span> skill != <span class="string">"C"</span> &amp;&amp; skill != <span class="string">"Cpp"</span> &amp;&amp; skill != <span class="string">"Java"</span> &amp;&amp; skill != <span class="string">"Golang"</span> &#123;</span><br><span class="line">					t.Error(<span class="string">"failed"</span>)</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	t.Log(<span class="string">"passed"</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到，<code>gopkg.in/go-playground/validator.v10</code>虽然减少了部分代码，但是校验逻辑需要写在结构体的的标签上面，增加了代码耦合。另外，<code>validator</code>还不支持枚举的校验。</p>
+<h2 id="使用checker"><a href="#使用checker" class="headerlink" title="使用checker"></a>使用checker</h2><p>本文介绍的<a href="https://github.com/liangyaopei/checker" target="_blank" rel="noopener">checker</a>由<code>Rule</code>和<code>Checker</code>组成，在外部对结构体的每一个字段添加规则，降低代码耦合性，并且提供组合规则，枚举等规则，可以轻松实现不同规则的自由组合。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">getProfileChecker</span><span class="params">()</span> <span class="title">checker</span>.<span class="title">Checker</span></span> &#123;</span><br><span class="line">	profileChecker := checker.NewChecker()</span><br><span class="line"></span><br><span class="line">	infoNameRule := checker.NewLengthRule(<span class="string">"Info.Name"</span>, <span class="number">1</span>, <span class="number">20</span>)</span><br><span class="line">	profileChecker.Add(infoNameRule, <span class="string">"invalid info name"</span>)</span><br><span class="line"></span><br><span class="line">	infoAgeRule := checker.NewRangeRuleInt(<span class="string">"Info.Age"</span>, <span class="number">18</span>, <span class="number">80</span>)</span><br><span class="line">	profileChecker.Add(infoAgeRule, <span class="string">"invalid info age"</span>)</span><br><span class="line"></span><br><span class="line">	infoEmailRule := checker.NewAndRule([]checker.Rule&#123;</span><br><span class="line">		checker.NewLengthRule(<span class="string">"Info.Email"</span>, <span class="number">1</span>, <span class="number">64</span>),</span><br><span class="line">		checker.NewEmailRule(<span class="string">"Info.Email"</span>),</span><br><span class="line">	&#125;)</span><br><span class="line">	profileChecker.Add(infoEmailRule, <span class="string">"invalid info email"</span>)</span><br><span class="line"></span><br><span class="line">	companyLenRule := checker.NewLengthRule(<span class="string">"Companies"</span>, <span class="number">1</span>, <span class="number">3</span>)</span><br><span class="line">	profileChecker.Add(companyLenRule, <span class="string">"invalid companies len"</span>)</span><br><span class="line"></span><br><span class="line">	frontendRule := checker.NewAndRule([]checker.Rule&#123;</span><br><span class="line">		checker.NewEqRuleString(<span class="string">"Position"</span>, <span class="string">"frontend"</span>),</span><br><span class="line">		checker.NewSliceRule(<span class="string">"Skills"</span>,</span><br><span class="line">			checker.NewEnumRuleString(<span class="string">""</span>, []<span class="keyword">string</span>&#123;<span class="string">"html"</span>, <span class="string">"css"</span>, <span class="string">"javascript"</span>&#125;),</span><br><span class="line">		),</span><br><span class="line">	&#125;)</span><br><span class="line">	backendRule := checker.NewAndRule([]checker.Rule&#123;</span><br><span class="line">		checker.NewEqRuleString(<span class="string">"Position"</span>, <span class="string">"backend"</span>),</span><br><span class="line">		checker.NewSliceRule(<span class="string">"Skills"</span>,</span><br><span class="line">			checker.NewEnumRuleString(<span class="string">""</span>, []<span class="keyword">string</span>&#123;<span class="string">"C"</span>, <span class="string">"CPP"</span>, <span class="string">"Java"</span>, <span class="string">"Golang"</span>&#125;),</span><br><span class="line">		),</span><br><span class="line">	&#125;)</span><br><span class="line">	companiesSliceRule := checker.NewSliceRule(<span class="string">"Companies"</span>,</span><br><span class="line">		checker.NewAndRule([]checker.Rule&#123;</span><br><span class="line">			checker.NewLengthRule(<span class="string">"Skills"</span>, <span class="number">1</span>, <span class="number">3</span>),</span><br><span class="line">			checker.NewOrRule([]checker.Rule&#123;</span><br><span class="line">				frontendRule, backendRule,</span><br><span class="line">			&#125;),</span><br><span class="line">		&#125;))</span><br><span class="line">	profileChecker.Add(companiesSliceRule, <span class="string">"invalid skill item"</span>)</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> profileChecker</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestProfileCheckerPassed</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">	profile := getPassedProfile()</span><br><span class="line">	profileChecker := getProfileChecker()</span><br><span class="line">	isValid, prompt, errMsg := profileChecker.Check(profile)</span><br><span class="line">	<span class="keyword">if</span> !isValid &#123;</span><br><span class="line">		t.Logf(<span class="string">"prompt:%s"</span>, prompt)</span><br><span class="line">		t.Logf(<span class="string">"errMsg:%s"</span>, errMsg)</span><br><span class="line">		<span class="keyword">return</span></span><br><span class="line">	&#125;</span><br><span class="line">	t.Log(<span class="string">"pass check"</span>)</span><br></pre></td></tr></table></figure>
+<p>通过的<code>checker</code>的自由搭配，<a href="https://github.com/liangyaopei/checker/blob/master/_checker_test/checker_test.go" target="_blank" rel="noopener">TestProfileCheckerPassed</a>函数无需添加额外的代码，即可完成校验,降低了代码耦合性。校验的逻辑都在<code>checker</code>里面，校验逻辑更为清晰。</p>
+<h2 id="参考文档"><a href="#参考文档" class="headerlink" title="参考文档"></a>参考文档</h2><ol>
+<li><a href="https://github.com/liangyaopei/checker" target="_blank" rel="noopener">checker</a></li>
+</ol>
+<blockquote>
+<p>我的公众号：lyp分享的地方</p>
+<p>我的知乎专栏: <a href="https://zhuanlan.zhihu.com/c_1275466546035740672" target="_blank" rel="noopener">https://zhuanlan.zhihu.com/c_1275466546035740672</a></p>
+<p>我的博客：<a href="http://www.liangyaopei.com" target="_blank" rel="noopener">www.liangyaopei.com</a></p>
+<p>Github Page: <a href="https://liangyaopei.github.io/">https://liangyaopei.github.io/</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Golang/" rel="tag"># Golang</a>
+              <a href="/tags/struct-validation/" rel="tag"># struct validation</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/11/01/golang-context/" rel="prev" title="Golang context包源码分析">
+      <i class="fa fa-chevron-left"></i> Golang context包源码分析
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#使用if-else"><span class="nav-number">1.</span> <span class="nav-text">使用if&#x2F;else</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用gin的validatior"><span class="nav-number">2.</span> <span class="nav-text">使用gin的validatior</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用checker"><span class="nav-number">3.</span> <span class="nav-text">使用checker</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考文档"><span class="nav-number">4.</span> <span class="nav-text">参考文档</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">23</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">27</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liangyaopei" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yaopei.liang@foxmail.com" title="E-Mail → mailto:yaopei.liang@foxmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://github.com/liangyaopei" title="https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank">Github</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
