@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liangyaopei.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="常见的GC算法引用计数法根据对象自身的引用计数来回收，当引用计数归零时进行回收，但是计数频繁更新会带来更多开销，且无法解决循环引用的问题。  优点：简单直接，回收速度快 缺点：需要额外的空间存放计数，无法处理循环引用的情况；">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Golang垃圾回收(GC)介绍">
+<meta property="og:url" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/index.html">
+<meta property="og:site_name" content="Random walk to my blog">
+<meta property="og:description" content="常见的GC算法引用计数法根据对象自身的引用计数来回收，当引用计数归零时进行回收，但是计数频繁更新会带来更多开销，且无法解决循环引用的问题。  优点：简单直接，回收速度快 缺点：需要额外的空间存放计数，无法处理循环引用的情况；">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/mark_clean.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/copy_method.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/mark_tidy.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/three_color.gif">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/no_STW_1.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/no_STW_2.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/no_STW_3.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/no_STW_4.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/no_STW_5.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/insert_barrier_1.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/insert_barrier_2.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/insert_barrier_3.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/insert_barrier_4.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/insert_barrier_5.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/insert_barrier_6.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/insert_barrier_7.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/insert_barrier_8.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/insert_barrier_9.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/insert_barrier_10.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/delete_barrier_1.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/delete_barrier_2.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/delete_barrier_3.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/delete_barrier_4.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/delete_barrier_5.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/delete_barrier_6.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/delete_barrier_7.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/stw_mark.png">
+<meta property="article:published_time" content="2021-01-02T03:38:43.000Z">
+<meta property="article:modified_time" content="2021-01-02T08:33:09.291Z">
+<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:tag" content="Golang">
+<meta property="article:tag" content="GC">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/mark_clean.png">
+
+<link rel="canonical" href="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Golang垃圾回收(GC)介绍 | Random walk to my blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Random walk to my blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">my blog for sharing my knowledge,experience and viewpoint</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2021/01/02/golang-gc-intro/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Random walk to my blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Golang垃圾回收(GC)介绍
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-01-02 11:38:43 / 修改时间：16:33:09" itemprop="dateCreated datePublished" datetime="2021-01-02T11:38:43+08:00">2021-01-02</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Golang/" itemprop="url" rel="index"><span itemprop="name">Golang</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="常见的GC算法"><a href="#常见的GC算法" class="headerlink" title="常见的GC算法"></a>常见的GC算法</h1><h2 id="引用计数法"><a href="#引用计数法" class="headerlink" title="引用计数法"></a>引用计数法</h2><p>根据对象自身的引用计数来回收，当引用计数归零时进行回收，但是计数频繁更新会带来更多开销，且无法解决循环引用的问题。</p>
+<ul>
+<li>优点：简单直接，回收速度快</li>
+<li>缺点：需要额外的空间存放计数，无法处理循环引用的情况；</li>
+</ul>
+<a id="more"></a> 
+
+<h2 id="标记清除法"><a href="#标记清除法" class="headerlink" title="标记清除法"></a>标记清除法</h2><p>标记出所有不需要回收的对象，在标记完成后统一回收掉所有未被标记的对象。<br><img src="mark_clean.png" alt="mark_clean"></p>
+<ul>
+<li>优点：简单直接，速度快，适合可回收对象不多的场景</li>
+<li>缺点：会造成不连续的内存空间（内存碎片），导致有大的对象创建的时候，明明内存中总内存是够的，但是空间不是连续的造成对象无法分配；</li>
+</ul>
+<h2 id="复制法"><a href="#复制法" class="headerlink" title="复制法"></a>复制法</h2><p>复制法将内存分为大小相同的两块，每次使用其中的一块，当这一块的内存使用完后，将还存活的对象复制到另一块去，然后再把使用的空间一次清理掉<br><img src="copy_method.png" alt="copy_method"></p>
+<ul>
+<li>优点：解决了内存碎片的问题，每次清除针对的都是整块内存，但是因为移动对象需要耗费时间，效率低于标记清除法；</li>
+<li>缺点：有部分内存总是利用不到，资源浪费，移动存活对象比较耗时，并且如果存活对象较多的时候，需要担保机制确保复制区有足够的空间可完成复制；</li>
+</ul>
+<h2 id="标记整理"><a href="#标记整理" class="headerlink" title="标记整理"></a>标记整理</h2><p>标记过程同标记清除法，结束后将存活对象压缩至一端，然后清除边界外的内容<br><img src="mark_tidy.png" alt="mark_tidy"></p>
+<ul>
+<li>优点：解决了内存碎片的问题，也不像标记复制法那样需要担保机制，存活对象较多的场景也使适用；</li>
+<li>缺点：性能低，因为在移动对象的时候不仅需要移动对象还要维护对象的引用地址，可能需要对内存经过几次扫描才能完成；</li>
+</ul>
+<h2 id="分代式"><a href="#分代式" class="headerlink" title="分代式"></a>分代式</h2><p>将对象根据存活时间的长短进行分类，存活时间小于某个值的为年轻代，存活时间大于某个值的为老年代，永远不会参与回收的对象为永久代。并根据分代假设（如果一个对象存活时间不长则倾向于被回收，如果一个对象已经存活很长时间则倾向于存活更长时间）对对象进行回收。</p>
+<h1 id="Golang的垃圾回收（GC）算法"><a href="#Golang的垃圾回收（GC）算法" class="headerlink" title="Golang的垃圾回收（GC）算法"></a>Golang的垃圾回收（GC）算法</h1><p>Golang的垃圾回收（GC）算法使用的是无无分代（对象没有代际之分）、不整理（回收过程中不对对象进行移动与整理）、并发（与用户代码并发执行）的三色标记清扫算法。原因在于：</p>
+<ul>
+<li><p>对象整理的优势是解决内存碎片问题以及“允许”使用顺序内存分配器。但 Go 运行时的分配算法基于<code>tcmalloc</code>，基本上没有碎片问题。 并且顺序内存分配器在多线程的场景下并不适用。Go 使用的是基于<code>tcmalloc</code>的现代内存分配算法，对对象进行整理不会带来实质性的性能提升。</p>
+</li>
+<li><p>分代<code>GC</code>依赖分代假设，即<code>GC</code>将主要的回收目标放在新创建的对象上（存活时间短，更倾向于被回收），而非频繁检查所有对象。</p>
+</li>
+<li><p>Go 的编译器会通过逃逸分析将大部分新生对象存储在栈上（栈直接被回收），只有那些需要长期存在的对象才会被分配到需要进行垃圾回收的堆中。也就是说，分代<code>GC</code>回收的那些存活时间短的对象在 Go 中是直接被分配到栈上，当<code>goroutine</code>死亡后栈也会被直接回收，不需要<code>GC</code>的参与，进而分代假设并没有带来直接优势。</p>
+</li>
+<li><p>Go 的垃圾回收器与用户代码并发执行，使得 STW 的时间与对象的代际、对象的 size 没有关系。Go 团队更关注于如何更好地让 GC 与用户代码并发执行（使用适当的 CPU 来执行垃圾回收），而非减少停顿时间这一单一目标上。</p>
+</li>
+</ul>
+<h2 id="三色标记法原理"><a href="#三色标记法原理" class="headerlink" title="三色标记法原理"></a>三色标记法原理</h2><p>三色标记法将对象分为三类，并用不同的颜色相称：</p>
+<ul>
+<li><p>白色对象（可能死亡）：未被回收器访问到的对象。在回收开始阶段，所有对象均为白色，当回收结束后，白色对象均不可达。</p>
+</li>
+<li><p>灰色对象（波面）：已被回收器访问到的对象，但回收器需要对其中的一个或多个指针进行扫描，因为他们可能还指向白色对象。</p>
+</li>
+<li><p>黑色对象（确定存活）：已被回收器访问到的对象，其中所有字段都已被扫描，黑色对象中任何一个指针都不可能直接指向白色对象。</p>
+</li>
+</ul>
+<p>标记过程如下：</p>
+<p>（1）起初所有的对象都是白色的；</p>
+<p>（2）从根对象出发扫描所有可达对象，标记为灰色，放入待处理队列；</p>
+<p>（3）从待处理队列中取出灰色对象，将其引用的对象标记为灰色并放入待处理队列中，自身标记为黑色；</p>
+<p>（4）重复步骤（3），直到待处理队列为空，此时白色对象即为不可达的“垃圾”，回收白色对象；</p>
+<p><img src="three_color.gif" alt="three_color"></p>
+<blockquote>
+<p>根对象在垃圾回收的术语中又叫做根集合，它是垃圾回收器在标记过程时最先检查的对象，包括： </p>
+</blockquote>
+<ol>
+<li>全局变量：程序在编译期就能确定的那些存在于程序整个生命周期的变量。 </li>
+<li>执行栈：每个 goroutine 都包含自己的执行栈，这些执行栈上包含栈上的变量及指向分配的堆内存区块的指针。 </li>
+<li>寄存器：寄存器的值可能表示一个指针，参与计算的这些指针可能指向某些赋值器分配的堆内存区块。</li>
+</ol>
+<h2 id="屏障机制"><a href="#屏障机制" class="headerlink" title="屏障机制"></a>屏障机制</h2><h3 id="STW"><a href="#STW" class="headerlink" title="STW"></a>STW</h3><p>STW 可以是Stop The World的缩写，也可以是Start The World的缩写。通常意义上指的是从Stop The World到Start The World这一段时间间隔。垃圾回收过程中为了保证准确性、防止无止境的内存增长等问题而不可避免的需要停止赋值器进一步操作对象图以完成垃圾回收。STW时间越长，对用户代码造成的影响越大。</p>
+<h3 id="No-STW-存在的问题"><a href="#No-STW-存在的问题" class="headerlink" title="No STW 存在的问题"></a>No STW 存在的问题</h3><p>假设下面的场景，已经被标记为灰色的对象2，未被标记的对象3被对象2用指针p引用；此时已经被标记为黑色的对象4创建指针q 指向未被标记的对象3，同时对象2将指针p移除；对象4已经被标记为黑色，对象3未被引用，对象2删除与对象3的引用，导致最后对象3被误清除； </p>
+<p><img src="no_STW_1.png" alt="no_STW_1"></p>
+<p><img src="no_STW_2.png" alt="no_STW_2"></p>
+<p><img src="no_STW_3.png" alt="no_STW_3"></p>
+<p><img src="no_STW_4.png" alt="no_STW_4"></p>
+<p><img src="no_STW_5.png" alt="no_STW_5"></p>
+<ul>
+<li><p>垃圾回收的原则是不应出现对象的丢失，也不应错误的回收还不需要回收的对象。如果同时满足下面两个条件会破坏回收器的正确性：</p>
+<ul>
+<li><p>条件 1: 赋值器修改对象图，导致某一黑色对象引用白色对象；（通俗的说就是A突然持有了B的指针，而B在并发标记的过程中已经被判定为白色对象要被清理掉的）</p>
+</li>
+<li><p>条件 2: 从灰色对象出发，到达白色对象且未经访问过的路径被赋值器破坏；（通俗的说就是A持有B的指针，这个持有关系被释放）</p>
+</li>
+</ul>
+</li>
+</ul>
+<p>只要能够避免其中任何一个条件，则不会出现对象丢失的情况，因为：</p>
+<ul>
+<li>如果条件 1被避免，则所有白色对象均被灰色对象引用，没有白色对象会被遗漏；</li>
+<li>如果条件 2 被避免，即便白色对象的指针被写入到黑色对象中，但从灰色对象出发，总存在一条没有访问过的路径，从而找到到达白色对象的路径，白色对象最终不会被遗漏。</li>
+</ul>
+<p><strong>可能的解决方法：</strong> 整个过程STW，浪费资源，且对用户程序影响较大，由此引入了<strong>屏障机制</strong>；</p>
+<h3 id="屏障机制-1"><a href="#屏障机制-1" class="headerlink" title="屏障机制"></a>屏障机制</h3><p>把回收器视为对象，把赋值器视为影响回收器这一对象的实际行为（即影响 GC 周期的长短），从而引入赋值器的颜色：</p>
+<ul>
+<li>黑色赋值器：已经由回收器扫描过，不会再次对其进行扫描。</li>
+<li>灰色赋值器：尚未被回收器扫描过或尽管已经扫描过，但仍需要重新扫描。</li>
+</ul>
+<h4 id="插入屏障（Dijkstra）-灰色赋值器"><a href="#插入屏障（Dijkstra）-灰色赋值器" class="headerlink" title="插入屏障（Dijkstra）- 灰色赋值器"></a>插入屏障（Dijkstra）- 灰色赋值器</h4><p>写入前，对指针所要指向的对象进行着色</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 灰色赋值器 Dijkstra 插入屏障</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">DijkstraWritePointer</span><span class="params">(slot *unsafe.Pointer, ptr unsafe.Pointer)</span></span> &#123;</span><br><span class="line">    shade(ptr) <span class="comment">//先将新下游对象 ptr 标记为灰色</span></span><br><span class="line">    *slot = ptr</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//说明：</span></span><br><span class="line">添加下游对象(当前下游对象slot, 新下游对象ptr) &#123;   </span><br><span class="line">  <span class="comment">//step 1</span></span><br><span class="line">  标记灰色(新下游对象ptr)   </span><br><span class="line">  </span><br><span class="line">  <span class="comment">//step 2</span></span><br><span class="line">  当前下游对象slot = 新下游对象ptr                    </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//场景：</span></span><br><span class="line">A.添加下游对象(<span class="literal">nil</span>, B)   <span class="comment">//A 之前没有下游， 新添加一个下游对象B， B被标记为灰色</span></span><br><span class="line">A.添加下游对象(C, B)     <span class="comment">//A 将下游对象C 更换为B，  B被标记为灰色</span></span><br></pre></td></tr></table></figure>
+
+
+
+<blockquote>
+<p>避免条件1（ 赋值器修改对象图，导致某一黑色对象引用白色对象；）因为在对象A 引用对象B 的时候，B 对象被标记为灰色</p>
+</blockquote>
+<p>Dijkstra 插入屏障的好处在于可以立刻开始并发标记。但存在两个缺点：</p>
+<ul>
+<li><p>由于 Dijkstra 插入屏障的“保守”，在一次回收过程中可能会残留一部分对象没有回收成功，只有在下一个回收过程中才会被回收；</p>
+</li>
+<li><p>在标记阶段中，每次进行<strong>指针赋值操作</strong>时，都需要<strong>引入写屏障</strong>，这无疑会增加大量性能开销；为了避免造成性能问题，<code>Go</code>团队在最终实现时，<strong>没有为所有栈上的指针写操作，启用写屏障</strong>，而是当发生栈上的写操作时，将栈标记为灰色，但此举产生了<strong>灰色赋值器</strong>，将会需要标记终止阶段 STW 时对这些栈进行<strong>重新扫描</strong>。</p>
+</li>
+</ul>
+<p><img src="insert_barrier_1.png" alt="insert_barrier_1"></p>
+<p><img src="insert_barrier_2.png" alt="insert_barrier_2"></p>
+<p><img src="insert_barrier_3.png" alt="insert_barrier_3"></p>
+<p><img src="insert_barrier_4.png" alt="insert_barrier_4"></p>
+<p><img src="insert_barrier_5.png" alt="insert_barrier_5"></p>
+<p><img src="insert_barrier_6.png" alt="insert_barrier_6"></p>
+<p><img src="insert_barrier_7.png" alt="insert_barrier_7"></p>
+<p><img src="insert_barrier_8.png" alt="insert_barrier_8"></p>
+<p><img src="insert_barrier_9.png" alt="insert_barrier_9"></p>
+<p><img src="insert_barrier_10.png" alt="insert_barrier_10"></p>
+<h4 id="删除屏障-（Yuasa）-黑色赋值器"><a href="#删除屏障-（Yuasa）-黑色赋值器" class="headerlink" title="删除屏障 （Yuasa）- 黑色赋值器"></a>删除屏障 （Yuasa）- 黑色赋值器</h4><p>写入前，对指针所在对象进行着色</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 黑色赋值器 Yuasa 屏障</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">YuasaWritePointer</span><span class="params">(slot *unsafe.Pointer, ptr unsafe.Pointer)</span></span> &#123;</span><br><span class="line">    shade(*slot) 先将*slot标记为灰色</span><br><span class="line">    *slot = ptr</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//说明：</span></span><br><span class="line">添加下游对象(当前下游对象slot， 新下游对象ptr) &#123;</span><br><span class="line">  <span class="comment">//step 1</span></span><br><span class="line">  <span class="keyword">if</span> (当前下游对象slot是灰色 || 当前下游对象slot是白色) &#123;</span><br><span class="line">          标记灰色(当前下游对象slot)     <span class="comment">//slot为被删除对象， 标记为灰色</span></span><br><span class="line">  &#125;  </span><br><span class="line">  <span class="comment">//step 2</span></span><br><span class="line">  当前下游对象slot = 新下游对象ptr</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//场景</span></span><br><span class="line">A.添加下游对象(B, <span class="literal">nil</span>)   <span class="comment">//A对象，删除B对象的引用。B被A删除，被标记为灰(如果B之前为白)</span></span><br><span class="line">A.添加下游对象(B, C)     <span class="comment">//A对象，更换下游B变成C。B被A删除，被标记为灰(如果B之前为白)</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>避免条件2（从灰色对象出发，到达白色对象的、未经访问过的路径被赋值器破坏），因为被删除对象，如果自身是灰色或者白色，则被标记为灰色</p>
+</blockquote>
+<p><img src="delete_barrier_1.png" alt="delete_barrier_1"></p>
+<p><img src="delete_barrier_2.png" alt="delete_barrier_2"></p>
+<p><img src="delete_barrier_3.png" alt="delete_barrier_3"></p>
+<p><img src="delete_barrier_4.png" alt="delete_barrier_4"></p>
+<p><img src="delete_barrier_5.png" alt="delete_barrier_5"></p>
+<p><img src="delete_barrier_6.png" alt="delete_barrier_6"></p>
+<p><img src="delete_barrier_7.png" alt="delete_barrier_7"></p>
+<p>特点：标记结束不需要STW，但是回收精度低，GC 开始时STW 扫描堆栈记录初始快照，保护开始时刻的所有存活对象；且容易产生“冗余”扫描；</p>
+<h4 id="混合屏障"><a href="#混合屏障" class="headerlink" title="混合屏障"></a>混合屏障</h4><p>大大缩短了 STW 时间</p>
+<ul>
+<li>GC 开始将栈上的对象全部扫描并标记为黑色；</li>
+<li>GC 期间，任何在栈上创建的新对象，均为黑色；</li>
+<li>被删除的堆对象标记为灰色；</li>
+<li>被添加的堆对象标记为灰色；</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 混合写屏障</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">HybridWritePointerSimple</span><span class="params">(slot *unsafe.Pointer, ptr unsafe.Pointer)</span></span> &#123;</span><br><span class="line">    shade(*slot)</span><br><span class="line">    shade(ptr)</span><br><span class="line">    *slot = ptr</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="Golang-GC过程"><a href="#Golang-GC过程" class="headerlink" title="Golang GC过程"></a>Golang GC过程</h3><h4 id="标记清理"><a href="#标记清理" class="headerlink" title="标记清理"></a>标记清理</h4><h5 id="Marking-setup"><a href="#Marking-setup" class="headerlink" title="Marking setup"></a>Marking setup</h5><p>为了打开写屏障，必须停止每个goroutine，让垃圾收集器观察并等待每个goroutine进行函数调用， 等待函数调用是为了保证goroutine停止时处于安全点。</p>
+<p><img src="stw_mark.png" alt="stw_mark"></p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 如果goroutine4 处于如下循环中，运行时间取决于slice numbers的大小</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">add</span><span class="params">(numbers []<span class="keyword">int</span>)</span> <span class="title">int</span></span> &#123;</span><br><span class="line">    <span class="keyword">var</span> v <span class="keyword">int</span></span><br><span class="line">    <span class="keyword">for</span> _, n := <span class="keyword">range</span> numbers &#123;</span><br><span class="line">             v += n</span><br><span class="line">     &#125;</span><br><span class="line">     <span class="keyword">return</span> v</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>下面的代码中，由于<code>for{}</code>循环所在的goroutine 永远不会中断，导致始终无法进入STW阶段，资源浪费；Go 1.14 之后，此类goroutine 能被异步抢占，使得进入STW的时间不会超过抢占信号触发的周期，程序也不会因为仅仅等待一个goroutine的停止而停顿在进入STW之前的操作上。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        <span class="keyword">for</span> &#123;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;()</span><br><span class="line">    time.Sleep(time.Milliecond)</span><br><span class="line">    runtime.GC()</span><br><span class="line">    <span class="built_in">println</span>(<span class="string">"done"</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="Marking"><a href="#Marking" class="headerlink" title="Marking"></a>Marking</h5><p>一旦写屏障打开，垃圾收集器就开始标记阶段，垃圾收集器所做的第一件事是占用25%CPU。</p>
+<p>标记阶段需要标记在堆内存中仍然在使用中的值。首先检查所有现goroutine的堆栈，以找到堆内存的根指针。然后收集器必须从那些根指针遍历堆内存图，标记可以回收的内存。</p>
+<p>当存在新的内存分配时，会暂停分配内存过快的那些 goroutine，并将其转去执行一些辅助标记（Mark Assist）的工作，从而达到放缓继续分配、辅助 GC 的标记工作的目的。</p>
+<h5 id="Mark终止"><a href="#Mark终止" class="headerlink" title="Mark终止"></a>Mark终止</h5><p>关闭写屏障，执行各种清理任务（STW - optional ）</p>
+<h5 id="Sweep-清理"><a href="#Sweep-清理" class="headerlink" title="Sweep (清理)"></a>Sweep (清理)</h5><p>清理阶段用于回收标记阶段中标记出来的可回收内存。当应用程序goroutine尝试在堆内存中分配新内存时，会触发该操作，清理导致的延迟和吞吐量降低被分散到每次内存分配时。</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>说明</th>
+<th>赋值器状态</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SweepTermination</td>
+<td>清扫终止阶段，为下一阶段的并发标记做准备工作，启动写屏障</td>
+<td>STW</td>
+</tr>
+<tr>
+<td>Mark</td>
+<td>扫描标记阶段，与赋值器并发执行，写屏障开启</td>
+<td>并发</td>
+</tr>
+<tr>
+<td>MarkTermination</td>
+<td>标记终止阶段，保证一个周期内标记任务完成，停止写屏障</td>
+<td>STW</td>
+</tr>
+<tr>
+<td>GCoff</td>
+<td>内存清扫阶段，将需要回收的内存归还到堆中，写屏障关闭</td>
+<td>并发</td>
+</tr>
+<tr>
+<td>GCoff</td>
+<td>内存归还阶段，将需要回收的内存归还给操作系统，写屏障关闭</td>
+<td>并发</td>
+</tr>
+</tbody></table>
+<p><strong>清除阶段出现新对象：</strong></p>
+<p>清除阶段是扫描整个堆内存，可以知道当前清除到什么位置，创建的新对象判定下，如果新对象的指针位置已经被扫描过了，那么就不用作任何操作，不会被误清除，如果在当前扫描的位置的后面，把该对象的颜色标记为黑色，这样就不会被误清除了</p>
+<p><strong>什么时候进行清理？</strong></p>
+<p>主动触发（runtime.GC()） 被动触发 （GC百分比、定时）</p>
+<h3 id="GC-百分比"><a href="#GC-百分比" class="headerlink" title="GC 百分比"></a>GC 百分比</h3><p>运行时中有GC 百分比的配置选项，默认情况下为100。此值表示在下一次垃圾收集必须启动之前可以分配多少新内存的比率。将GC百分比设置为100意味着：基于在垃圾收集完成后标记为活动的堆内存量，下次垃圾收集前，堆内存使用可以增加100%。</p>
+<h3 id="GC过程演示"><a href="#GC过程演示" class="headerlink" title="GC过程演示"></a>GC过程演示</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"os"</span></span><br><span class="line">	<span class="string">"runtime"</span></span><br><span class="line">	<span class="string">"runtime/trace"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">gcfinished</span><span class="params">()</span> *<span class="title">int</span></span> &#123;</span><br><span class="line">	p := <span class="number">1</span></span><br><span class="line">	runtime.SetFinalizer(&amp;p, <span class="function"><span class="keyword">func</span><span class="params">(_ *<span class="keyword">int</span>)</span></span> &#123;</span><br><span class="line">		<span class="built_in">println</span>(<span class="string">"gc finished"</span>)</span><br><span class="line">	&#125;)</span><br><span class="line">	<span class="keyword">return</span> &amp;p</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">allocate</span><span class="params">()</span></span> &#123;</span><br><span class="line">	_ = <span class="built_in">make</span>([]<span class="keyword">byte</span>, <span class="keyword">int</span>((<span class="number">1</span>&lt;&lt;<span class="number">20</span>)*<span class="number">0.25</span>))</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	f, _ := os.Create(<span class="string">"trace.out"</span>)</span><br><span class="line">	<span class="keyword">defer</span> f.Close()</span><br><span class="line">	trace.Start(f)</span><br><span class="line">	<span class="keyword">defer</span> trace.Stop()</span><br><span class="line">	gcfinished()</span><br><span class="line">	<span class="comment">// 当完成 GC 时停止分配</span></span><br><span class="line">	<span class="keyword">for</span> n := <span class="number">1</span>; n &lt; <span class="number">50</span>; n++ &#123;</span><br><span class="line">		<span class="built_in">println</span>(<span class="string">"#allocate: "</span>, n)</span><br><span class="line">		allocate()</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="built_in">println</span>(<span class="string">"terminate"</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>运行程序</p>
+<figure class="highlight angelscript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">liangyaopei&gt; </span><br><span class="line">&gt; $ GODEBUG=gctrace=<span class="number">1</span> go run main.go                                                                       </span><br><span class="line">gc <span class="number">1</span> @<span class="number">0.005</span>s <span class="number">3</span>%: <span class="number">0.023</span>+<span class="number">0.87</span>+<span class="number">0.059</span> ms clock, <span class="number">0.19</span>+<span class="number">0.80</span>/<span class="number">0.42</span>/<span class="number">0</span>+<span class="number">0.47</span> ms cpu, <span class="number">4</span>-&gt;<span class="number">4</span>-&gt;<span class="number">0</span> MB, <span class="number">5</span> MB goal, <span class="number">8</span> P</span><br></pre></td></tr></table></figure>
+
+<p>栈分析</p>
+<figure class="highlight crmsh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">gc <span class="number">1</span>      : 第一个GC周期</span><br><span class="line">@<span class="number">0.005s</span>   : 从程序开始运行到第一次GC时间为<span class="number">0.001</span> 秒</span><br><span class="line"><span class="number">5</span>%        : 此次GC过程中CPU 占用率</span><br><span class="line"></span><br><span class="line">wall clock</span><br><span class="line"><span class="number">0.023</span>+<span class="number">0.87</span>+<span class="number">0.059</span> <span class="keyword">ms</span> <span class="title">clock</span></span><br><span class="line"><span class="number">0.023</span> <span class="keyword">ms</span>  <span class="title">: STW</span>，Marking <span class="literal">Start</span>, 开启写屏障</span><br><span class="line"><span class="number">0.87</span> <span class="keyword">ms</span>   <span class="title">: Marking</span>阶段</span><br><span class="line"><span class="number">0.059</span> <span class="keyword">ms</span>  <span class="title">: STW</span>，Marking终止，关闭写屏障</span><br><span class="line"></span><br><span class="line">CPU time</span><br><span class="line"><span class="number">0.19</span>+<span class="number">0.80</span>/<span class="number">0.42</span>/<span class="number">0</span>+<span class="number">0.47</span> <span class="keyword">ms</span> <span class="title">cpu</span></span><br><span class="line"><span class="number">0.19</span> <span class="keyword">ms</span>   <span class="title">: STW</span>，Marking <span class="literal">Start</span></span><br><span class="line"><span class="number">0.80</span> <span class="keyword">ms</span>  <span class="title">: 辅助标记时间</span></span><br><span class="line"><span class="title">0</span>.<span class="number">42</span> <span class="keyword">ms</span>  <span class="title">: 并发标记时间</span></span><br><span class="line"><span class="title">0</span> <span class="keyword">ms</span>   <span class="title">: GC</span> 空闲时间</span><br><span class="line"><span class="number">0.47</span> <span class="keyword">ms</span>   <span class="title">: Mark</span> 终止时间</span><br><span class="line"></span><br><span class="line"><span class="number">4</span>-&gt;<span class="number">4</span>-&gt;<span class="number">0</span> MB， <span class="number">5</span> MB goal</span><br><span class="line"><span class="number">4</span> MB      ：标记开始时，堆大小实际值</span><br><span class="line"><span class="number">4</span> MB      ：标记结束时，堆大小实际值</span><br><span class="line"><span class="number">0</span> MB      ：标记结束时，标记为存活对象大小</span><br><span class="line"><span class="number">5</span> MB      ：标记结束时，堆大小预测值</span><br><span class="line"></span><br><span class="line"><span class="number">8</span> P</span><br><span class="line"><span class="number">8</span>P       ：本次GC过程中使用的goroutine 数量</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="关注指标与调优示例"><a href="#关注指标与调优示例" class="headerlink" title="关注指标与调优示例"></a>关注指标与调优示例</h2><h3 id="关注指标"><a href="#关注指标" class="headerlink" title="关注指标"></a>关注指标</h3><p>Go 的 GC 被设计为成比例触发、大部分工作与赋值器并发、不分代、无内存移动且会主动向操作系统归还申请的内存。因此最主要关注的、能够影响赋值器的性能指标有：</p>
+<ul>
+<li>CPU 利用率：回收算法会在多大程度上拖慢程序？有时候，这个是通过回收占用的 CPU 时间与其它 CPU 时间的百分比来描述的。</li>
+<li>GC 停顿时间：回收器会造成多长时间的停顿？目前的 GC 中需要考虑 STW 和 Mark Assist 两个部分可能造成的停顿。</li>
+<li>GC 停顿频率：回收器造成的停顿频率是怎样的？目前的 GC 中需要考虑 STW 和 Mark Assist 两个部分可能造成的停顿。</li>
+<li>GC 可扩展性：当堆内存变大时，垃圾回收器的性能如何？但大部分的程序可能并不一定关心这个问题。</li>
+</ul>
+<h3 id="调优示例"><a href="#调优示例" class="headerlink" title="调优示例"></a>调优示例</h3><h4 id="合理化内存分配的速度、提高赋值器的-CPU-利用率"><a href="#合理化内存分配的速度、提高赋值器的-CPU-利用率" class="headerlink" title="合理化内存分配的速度、提高赋值器的 CPU 利用率"></a>合理化内存分配的速度、提高赋值器的 CPU 利用率</h4><p>goroutine 的执行时间占其生命周期总时间非常短的一部分，但大部分时间都花费在调度器的等待上了，说明同时创建大量 goroutine 对调度器产生的压力确实不小，我们不妨将这一产生速率减慢，一批一批地创建 goroutine。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">concat</span><span class="params">()</span></span> &#123;</span><br><span class="line">   <span class="keyword">for</span> n := <span class="number">0</span>; n &lt; <span class="number">100</span>; n++ &#123;</span><br><span class="line">      <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">8</span>; i++ &#123;</span><br><span class="line">         <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">            s := <span class="string">"Go GC"</span></span><br><span class="line">            s += <span class="string">" "</span> + <span class="string">"Hello"</span></span><br><span class="line">            s += <span class="string">" "</span> + <span class="string">"World"</span></span><br><span class="line">            _ = s</span><br><span class="line">         &#125;()</span><br><span class="line">      &#125;</span><br><span class="line">   &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//改进</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">concat</span><span class="params">()</span></span> &#123;</span><br><span class="line">   wg := sync.WaitGroup&#123;&#125;</span><br><span class="line">   <span class="keyword">for</span> n := <span class="number">0</span>; n &lt; <span class="number">100</span>; n++ &#123;</span><br><span class="line">      wg.Add(<span class="number">8</span>)</span><br><span class="line">      <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">8</span>; i++ &#123;</span><br><span class="line">         <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">            s := <span class="string">"Go GC"</span></span><br><span class="line">            s += <span class="string">" "</span> + <span class="string">"Hello"</span></span><br><span class="line">            s += <span class="string">" "</span> + <span class="string">"World"</span></span><br><span class="line">            _ = s</span><br><span class="line">            wg.Done()</span><br><span class="line">         &#125;()</span><br><span class="line">      &#125;</span><br><span class="line">      wg.Wait()</span><br><span class="line">   &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="降低并复用已经申请的内存"><a href="#降低并复用已经申请的内存" class="headerlink" title="降低并复用已经申请的内存"></a>降低并复用已经申请的内存</h4><p><code>newBuf()</code>产生的申请的内存过多, sync.Pool 是内存复用的一个最为显著的例子</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">newBuf</span><span class="params">()</span> []<span class="title">byte</span></span> &#123;</span><br><span class="line">   <span class="keyword">return</span> <span class="built_in">make</span>([]<span class="keyword">byte</span>, <span class="number">10</span>&lt;&lt;<span class="number">20</span>)</span><br><span class="line">&#125;</span><br><span class="line">b := newBuf()</span><br><span class="line"></span><br><span class="line"><span class="comment">//改进</span></span><br><span class="line"><span class="keyword">var</span> bufPool = sync.Pool&#123;</span><br><span class="line">    New: <span class="function"><span class="keyword">func</span><span class="params">()</span> <span class="title">interface</span></span>&#123;&#125; &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">make</span>([]<span class="keyword">byte</span>, <span class="number">10</span>&lt;&lt;<span class="number">20</span>)</span><br><span class="line">    &#125;,</span><br><span class="line">&#125;</span><br><span class="line">b := bufPool.Get().([]<span class="keyword">byte</span>)</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="调整-GOGC"><a href="#调整-GOGC" class="headerlink" title="调整 GOGC"></a>调整 GOGC</h4><p>降低收集器的启动频率（提高GC百分比）无法帮助垃圾收集器更快完成收集工作。降低频率会导致垃圾收集器在收集期间完成更多的工作。 可以通过减少新分配对象数量来帮助垃圾收集器更快完成收集工作</p>
+<blockquote>
+<p>我的公众号：lyp分享的地方</p>
+<p>我的知乎专栏: <a href="https://zhuanlan.zhihu.com/c_1275466546035740672" target="_blank" rel="noopener">https://zhuanlan.zhihu.com/c_1275466546035740672</a></p>
+<p>我的博客：<a href="http://www.liangyaopei.com" target="_blank" rel="noopener">www.liangyaopei.com</a></p>
+<p>Github Page: <a href="https://liangyaopei.github.io/">https://liangyaopei.github.io/</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Golang/" rel="tag"># Golang</a>
+              <a href="/tags/GC/" rel="tag"># GC</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/12/13/golang-validator-checker/" rel="prev" title="Golang参数校验：go-playground/validator的缺点及替代品checker">
+      <i class="fa fa-chevron-left"></i> Golang参数校验：go-playground/validator的缺点及替代品checker
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#常见的GC算法"><span class="nav-number">1.</span> <span class="nav-text">常见的GC算法</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#引用计数法"><span class="nav-number">1.1.</span> <span class="nav-text">引用计数法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#标记清除法"><span class="nav-number">1.2.</span> <span class="nav-text">标记清除法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#复制法"><span class="nav-number">1.3.</span> <span class="nav-text">复制法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#标记整理"><span class="nav-number">1.4.</span> <span class="nav-text">标记整理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#分代式"><span class="nav-number">1.5.</span> <span class="nav-text">分代式</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Golang的垃圾回收（GC）算法"><span class="nav-number">2.</span> <span class="nav-text">Golang的垃圾回收（GC）算法</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#三色标记法原理"><span class="nav-number">2.1.</span> <span class="nav-text">三色标记法原理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#屏障机制"><span class="nav-number">2.2.</span> <span class="nav-text">屏障机制</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#STW"><span class="nav-number">2.2.1.</span> <span class="nav-text">STW</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#No-STW-存在的问题"><span class="nav-number">2.2.2.</span> <span class="nav-text">No STW 存在的问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#屏障机制-1"><span class="nav-number">2.2.3.</span> <span class="nav-text">屏障机制</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#插入屏障（Dijkstra）-灰色赋值器"><span class="nav-number">2.2.3.1.</span> <span class="nav-text">插入屏障（Dijkstra）- 灰色赋值器</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#删除屏障-（Yuasa）-黑色赋值器"><span class="nav-number">2.2.3.2.</span> <span class="nav-text">删除屏障 （Yuasa）- 黑色赋值器</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#混合屏障"><span class="nav-number">2.2.3.3.</span> <span class="nav-text">混合屏障</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Golang-GC过程"><span class="nav-number">2.2.4.</span> <span class="nav-text">Golang GC过程</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#标记清理"><span class="nav-number">2.2.4.1.</span> <span class="nav-text">标记清理</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#Marking-setup"><span class="nav-number">2.2.4.1.1.</span> <span class="nav-text">Marking setup</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Marking"><span class="nav-number">2.2.4.1.2.</span> <span class="nav-text">Marking</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Mark终止"><span class="nav-number">2.2.4.1.3.</span> <span class="nav-text">Mark终止</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Sweep-清理"><span class="nav-number">2.2.4.1.4.</span> <span class="nav-text">Sweep (清理)</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#GC-百分比"><span class="nav-number">2.2.5.</span> <span class="nav-text">GC 百分比</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#GC过程演示"><span class="nav-number">2.2.6.</span> <span class="nav-text">GC过程演示</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#关注指标与调优示例"><span class="nav-number">2.3.</span> <span class="nav-text">关注指标与调优示例</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#关注指标"><span class="nav-number">2.3.1.</span> <span class="nav-text">关注指标</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#调优示例"><span class="nav-number">2.3.2.</span> <span class="nav-text">调优示例</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#合理化内存分配的速度、提高赋值器的-CPU-利用率"><span class="nav-number">2.3.2.1.</span> <span class="nav-text">合理化内存分配的速度、提高赋值器的 CPU 利用率</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#降低并复用已经申请的内存"><span class="nav-number">2.3.2.2.</span> <span class="nav-text">降低并复用已经申请的内存</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#调整-GOGC"><span class="nav-number">2.3.2.3.</span> <span class="nav-text">调整 GOGC</span></a></li></ol></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">25</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">27</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liangyaopei" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yaopei.liang@foxmail.com" title="E-Mail → mailto:yaopei.liang@foxmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://github.com/liangyaopei" title="https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank">Github</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
