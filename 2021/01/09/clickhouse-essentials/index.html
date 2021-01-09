@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liangyaopei.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="ClickHouse是一个用于联机分析(OLAP)的列式数据库管理系统(DBMS)。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ClickHouse以及MergeTree引擎介绍">
+<meta property="og:url" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/index.html">
+<meta property="og:site_name" content="Random walk to my blog">
+<meta property="og:description" content="ClickHouse是一个用于联机分析(OLAP)的列式数据库管理系统(DBMS)。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/merge_tree_family.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/mergetree_structure.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/merge_process.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/merge_all.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/compressed_data_unit.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/compressed_logic.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/mrk_data.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/mrk_wrokflow.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/write_process.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/read_process.jpg">
+<meta property="article:published_time" content="2021-01-09T02:54:37.000Z">
+<meta property="article:modified_time" content="2021-01-09T06:50:59.026Z">
+<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:tag" content="ClickHouse">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/merge_tree_family.jpg">
+
+<link rel="canonical" href="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>ClickHouse以及MergeTree引擎介绍 | Random walk to my blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Random walk to my blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">my blog for sharing my knowledge,experience and viewpoint</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Random walk to my blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          ClickHouse以及MergeTree引擎介绍
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-01-09 10:54:37 / 修改时间：14:50:59" itemprop="dateCreated datePublished" datetime="2021-01-09T10:54:37+08:00">2021-01-09</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Data/" itemprop="url" rel="index"><span itemprop="name">Data</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>ClickHouse是一个用于联机分析(OLAP)的列式数据库管理系统(DBMS)。</p>
+<a id="more"></a> 
+
+<h2 id="OLAP场景的关键特征"><a href="#OLAP场景的关键特征" class="headerlink" title="OLAP场景的关键特征"></a>OLAP场景的关键特征</h2><p>OLAP(OnLine Analysis Processing ，联机分析处理),核心思想就是建立多维度的数据立方体，以维度（Dimension）和度量（Measure）为基本概念，辅以元数据，实现可以钻取、切片、切块、旋转等灵活、系统、直观的数据展现。</p>
+<p>它的特征有：</p>
+<ul>
+<li>绝大多数是读请求</li>
+<li>数据以相当大的批次(&gt; 1000行)更新，而不是单行更新;或者根本没有更新。</li>
+<li>已添加到数据库的数据不能修改。</li>
+<li>对于读取，从数据库中提取相当多的行，但只提取列的一小部分。</li>
+<li>宽表，即每个表包含着大量的列</li>
+<li>查询相对较少(通常每台服务器每秒查询数百次或更少)</li>
+<li>对于简单查询，允许延迟大约50毫秒</li>
+<li>列中的数据相对较小：数字和短字符串(例如，每个URL 60个字节)</li>
+<li>处理单个查询时需要高吞吐量(每台服务器每秒可达数十亿行)</li>
+<li>事务不是必须的</li>
+<li>对数据一致性要求低</li>
+<li>每个查询有一个大表。除了他以外，其他的都很小。</li>
+<li>查询结果明显小于源数据。换句话说，数据经过过滤或聚合，因此结果适合于单个服务器的RAM中</li>
+</ul>
+<h3 id="ClickHouse不适用的场景"><a href="#ClickHouse不适用的场景" class="headerlink" title="ClickHouse不适用的场景"></a>ClickHouse不适用的场景</h3><ul>
+<li>不支持事务</li>
+<li>不擅长按照主键进行粒度的查询（虽然支持）</li>
+<li>不擅长按行删除数据（虽然支持）</li>
+</ul>
+<h2 id="ClickHouse的MergeTree引擎"><a href="#ClickHouse的MergeTree引擎" class="headerlink" title="ClickHouse的MergeTree引擎"></a>ClickHouse的MergeTree引擎</h2><p><code>MergeTree</code>是ClickHouse最常用的表引擎，支持主键索引，数据分区，数据副本和数据采样等功能。</p>
+<p><img src="merge_tree_family.jpg" alt="merge_tree_family"></p>
+<h3 id="MergeTree的创建方式和存储方式"><a href="#MergeTree的创建方式和存储方式" class="headerlink" title="MergeTree的创建方式和存储方式"></a>MergeTree的创建方式和存储方式</h3><p>MergeTree写入一批数据时，数据会以数据片段的的形式写入磁盘，并且数据片段不可修改。为了逼迫数据片段过多，ClickHouse会通过后台线程，定期合并这些数据片段。</p>
+<h4 id="MergeTree的创建方式"><a href="#MergeTree的创建方式" class="headerlink" title="MergeTree的创建方式"></a>MergeTree的创建方式</h4><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> [<span class="keyword">IF</span> <span class="keyword">NOT</span> <span class="keyword">EXISTS</span>] [db_name].table_name (</span><br><span class="line">  </span><br><span class="line">)<span class="keyword">ENGINE</span> = MergeTree()</span><br><span class="line">[<span class="keyword">PARTITION</span> <span class="keyword">BY</span> expr]</span><br><span class="line">[<span class="keyword">ORDER</span> <span class="keyword">BY</span> expr]</span><br><span class="line">[PRIMARY <span class="keyword">KEY</span> expr]</span><br><span class="line">[<span class="keyword">SAMPLE</span> <span class="keyword">BY</span> expr]</span><br><span class="line">[<span class="keyword">SETTINGS</span> <span class="keyword">name</span>=<span class="keyword">value</span>,...]</span><br></pre></td></tr></table></figure>
+<p>(1)<code>PARTITION BY</code>[选填]: 分区键，用于指定表数据以何种形式进行分区。分区键支持：单个列字段，元组的形式使用多个列字段，列表达式。不声明的话，ClickHouse会生成一个all的分区。</p>
+<p>(2)<code>ORDER BY</code>[必填]: 排序键，指定在一个数据片段内，数据以何种标准排序。默认情况下主键和排序键相同。</p>
+<p>(3)<code>PRIMARY KEY</code>[选填]: 主键，主键字段生成一级索引，用于加上表查询。MergeTree运行重复数据(ReplacingMergeTree可以去重)</p>
+<p>(4) <code>SAMPLE BY</code> [选填]: 抽样表达式，声明数据的采样标准。声明了此配置项，主键的配置也有声明同样的表达式。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ENGINE = MERGETREE()</span><br><span class="line">ORDER BY (CounterID, EventDate, intHASH32(UserID))</span><br><span class="line">SAMPLE BY intHASH32(UserID)</span><br></pre></td></tr></table></figure>
+
+
+<p>(5) <code>SETTINGS</code>: <code>index_granularity</code>表示索引的粒度，默认是8192。 <code>MergeTree</code>在默认情况下，每隔8192行数据才生产一条索引。</p>
+<h4 id="MergeTree的存储结构"><a href="#MergeTree的存储结构" class="headerlink" title="MergeTree的存储结构"></a>MergeTree的存储结构</h4><p><img src="mergetree_structure.jpg" alt="mergetree_structure"></p>
+<p>(1) <code>partiton</code>： 分区目录，数据以分区目录的形式存放。</p>
+<p>(2) <code>columns.txt</code>：列信息文件</p>
+<p>(3) <code>count.txt</code>: 计数文件，记录当前数据目录下数据的总行数。</p>
+<p>(4) <code>primay.idx</code>: 一级索引文件，是稀疏索引，以二进制形式存储。</p>
+<p>(5) <code>[Column].bin</code>: 数据文件，存储某一列的数据，压缩格式存储，默认是LZ4压缩格式。每个列字段拥有独立.bin文件。</p>
+<p>(6) <code>[Column].mrk</code>:  列字段标记文件，保存.bin中数据的偏移量信息。ClickHouse通过<code>primay.idx</code>稀疏索引，找到对应数据的偏移量信息(.mrk)，然后通过偏移量直接从.bin文件中读取数据。</p>
+<p>(7) <code>[Column].mrk2</code>:  使用了自适应大小的索引间隔，标记文件会以<code>.mrk2</code>命名。原理和<code>.mrk</code>相同。</p>
+<p>(8) <code>partition.dat</code>和<code>minmax_[Column].idx</code>：使用了分区键就会生成。<code>partiton.dat</code>记录当前分区下，分区表达式最终生成的值。<code>minmax</code>索引记录当前分区下分区字段对应原始数据的最大值和最小值。这样方便查询时，跳过不必要数据分区，减少需要扫描的范围。</p>
+<h4 id="数据分区"><a href="#数据分区" class="headerlink" title="数据分区"></a>数据分区</h4><p>MergeTree的分区由分区ID决定，分区ID由分区键的取值决定。</p>
+<p>（1）不指定分区键：默认分区为all，所有数据都写入这个分区。</p>
+<p>（2）使用整型（兼容UInt64，包括有符号整型和无符号整型）：如果无法转化成日期类型YYYYMMDD格式，按照该整型的字符串形式取值。</p>
+<p>（3）使用日期类型：按照日期类型YYYYMMDD格式化后字符串输出。</p>
+<p>（4）其他类型：分区键类型不属于整型或者日期类型，例如Float64/String, 通过128Hash算法去Hash值作为分区ID的取值。</p>
+<h4 id="分区目录的命名规则"><a href="#分区目录的命名规则" class="headerlink" title="分区目录的命名规则"></a>分区目录的命名规则</h4><p>MergeTree的特点在于分区的合并，从分区的命名可以解读其合并逻辑。命名规则：</p>
+<figure class="highlight ebnf"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">PartitionID_MinBlockNum_MaxBlockNum_Level</span></span><br></pre></td></tr></table></figure>
+
+<p>目录合并过程</p>
+<p><img src="merge_process.jpg" alt="merge_process"></p>
+<p>完整的目录合并过程<br><img src="merge_all.jpg" alt="merge_all"></p>
+<h4 id="一级索引"><a href="#一级索引" class="headerlink" title="一级索引"></a>一级索引</h4><p>MergeTree的主键使用PRIMARY KEY定义，按照index_granularity间隔，为数据表生成一级索引并保存至primary.idx文件，索引数据按照PRIMARY KEY排序。相比使用PRIMARY KEY，更常见的方式是通过ORDER BY指定主键。</p>
+<h4 id="数据存储"><a href="#数据存储" class="headerlink" title="数据存储"></a>数据存储</h4><p>MergeTree中，数据是按列存储的，每个列字段有对应的.bin文件。按列独立存储可以更好地压缩数据，最小化数据扫描的范围。</p>
+<p><img src="compressed_data_unit.jpg" alt="compressed_data_unit"></p>
+<p>压缩数据块的逻辑</p>
+<p><img src="compressed_logic.jpg" alt=""></p>
+<h4 id="数据标记"><a href="#数据标记" class="headerlink" title="数据标记"></a>数据标记</h4><p>数据标记和和索引区间是一一对齐的, 都按照index_granularity的间隔。</p>
+<p>标记文件与.bin文件也一一对应，每一个[Column].bin文件都有一个对应的[Column].mrk文件，记录数据在.bin文件中的偏移量信息。</p>
+<p>.mrk中每行数据，对应压缩文件中偏移量和解压缩文件中偏移量。</p>
+<p><img src="mrk_data.jpg" alt="mrk_data"></p>
+<p>标记数据和一级索引数据不一样，它不能常驻内存，使用LRU缓存策略替换。</p>
+<h4 id="数据标记的工作方式"><a href="#数据标记的工作方式" class="headerlink" title="数据标记的工作方式"></a>数据标记的工作方式</h4><p>数据查找，分为读取压缩数据块，和读取数据两个步骤。<br><img src="mrk_wrokflow.jpg" alt="mrk_wrokflow"></p>
+<h4 id="数据写入过程"><a href="#数据写入过程" class="headerlink" title="数据写入过程"></a>数据写入过程</h4><p><img src="write_process.jpg" alt="write_process"></p>
+<h4 id="数据读取过程"><a href="#数据读取过程" class="headerlink" title="数据读取过程"></a>数据读取过程</h4><p><img src="read_process.jpg" alt=""></p>
+<h2 id="MergeTree系列表引擎"><a href="#MergeTree系列表引擎" class="headerlink" title="MergeTree系列表引擎"></a>MergeTree系列表引擎</h2><h3 id="ReplacingMergeTree"><a href="#ReplacingMergeTree" class="headerlink" title="ReplacingMergeTree"></a>ReplacingMergeTree</h3><p>MergeTree拥有主键，但是主键没有唯一键的约束。<code>ReplacingMergeTree</code>的处理逻辑</p>
+<p>(1) 使用<code>ORDER BY</code>排序键作为判断重复数据的唯一键。</p>
+<p>(2) 只有在合并分区的时候才会触发删除重复数据的逻辑</p>
+<p>(3) 以数据分区为单位删除重复数据。当分区合并时，同一分区的重复数据被删除，不同分区的合并数据不删除。</p>
+<p>(4) 数据去重时，分区内的数据已经基于<code>ORDER BY</code>进行了排序，所以能够找到某些相邻的重复数据。</p>
+<p>(5) 数据去重的策略</p>
+<h3 id="SummingMergeTree"><a href="#SummingMergeTree" class="headerlink" title="SummingMergeTree"></a>SummingMergeTree</h3><p>在<code>MergeTree</code>的每个数据分区，数据按照<code>order by</code> 表达式排序，主键索引按照<code>PRIMARY KEY</code>表达式取值并排序。一般情况下，只需要定义<code>ORDER BY</code>即可。</p>
+<p><code>SummingMergeTree</code>和<code>AggregatingMergeTree</code>的聚合都是根据<code>order by</code>进行的。</p>
+<p>如果同时声明了<code>ORDER BY</code>和<code>PRIMARY KEY</code>， <code>MergeTree</code>会强制要求<code>PRIMARY KEY</code>字段必须是<code>ORDER BY</code>的前缀。</p>
+<p>处理逻辑：</p>
+<p>(1)  <code>order by</code>排序键作为聚合数据的条件Key</p>
+<p>(2) 只有在合并分区的时候才会触发删除重复数据的逻辑</p>
+<p>(3)  以数据分区为单位聚合数据。当分区合并时，同一分区的聚合key相同的数据会被合并汇总，而不同分区之间的数据不会被汇总。</p>
+<p>(4) 定义引擎时，指定了columns汇总列，则sum汇总这些列字段；如果未指定，则聚合所有非主键的数值类型字段</p>
+<p>(5) 汇总数据时，同一分区内，相同聚合key的多行数据合并成一行。其中，汇总字段进行sum计算，非汇总字段。使用第一行的数据。</p>
+<p>(6) 之前嵌套结构，但列字段必须要Map后缀结尾。嵌套类型中，默认以第一个字段作为聚合key。除第一个字段外，任何名称以Key，Id，Type后缀结尾的字段，和第一个字段组成复合key。</p>
+<blockquote>
+<p>没有设置了ver版本号，保留同一组重复数据中的最后一行</p>
+<p>设置了ver版本号，保留同一组重复数据中的ver取值最大的一行</p>
+</blockquote>
+<h3 id="AggregatingMergeTree"><a href="#AggregatingMergeTree" class="headerlink" title="AggregatingMergeTree"></a>AggregatingMergeTree</h3><p><code>AggregatingMergeTree</code> 的<code>order by</code>，``primary key<code>同</code>SummingMergeTree`。</p>
+<p>看下面例子</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> agg_table(</span><br><span class="line">	<span class="keyword">id</span> <span class="keyword">String</span>,</span><br><span class="line">  city <span class="keyword">String</span>,</span><br><span class="line">  code AggregateFunction(uniq,<span class="keyword">String</span>),</span><br><span class="line">  <span class="keyword">value</span> AggregateFunction(<span class="keyword">sum</span>,UInt32),</span><br><span class="line">  create_time DateTime,</span><br><span class="line">)<span class="keyword">ENGINE</span> = AggregatingMergeTree</span><br><span class="line">PARTITIION <span class="keyword">BY</span> toYYYYMM(create_time)</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> (<span class="keyword">id</span>,city)</span><br><span class="line">PRIMARY <span class="keyword">KEY</span> <span class="keyword">id</span></span><br></pre></td></tr></table></figure>
+
+<p>其中，列字段id, city 是聚合条件，等同于</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">GROUP BY id,city</span><br></pre></td></tr></table></figure>
+
+<p>code,value是聚合字段，等同于</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">UNIQ(code), SUM(value)</span><br></pre></td></tr></table></figure>
+
+<p><code>AggregateFunction</code>是ClickHOuse一种特殊的数据类型，它能够以二进制的形式存储中间状态。写入数据，需要调用<code>*State</code>函数，读取数据，需要调用 <code>*Merge</code>函数</p>
+<p>通常会使用MergeTree作为底表，存储全量的数据，并且新建一张物化视图。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">MATERIALIZED</span> <span class="keyword">VIEW</span> agg_view</span><br><span class="line"><span class="keyword">ENGINE</span> = AggregatingMergeTree()</span><br><span class="line"><span class="keyword">PARTITION</span> <span class="keyword">BY</span> city</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> (<span class="keyword">id</span>,city)</span><br><span class="line"><span class="keyword">AS</span> <span class="keyword">SELECT</span></span><br><span class="line">	<span class="keyword">id</span>,</span><br><span class="line">	city,</span><br><span class="line">	uniqState(code) <span class="keyword">AS</span> code,</span><br><span class="line">	sumState(<span class="keyword">value</span>) <span class="keyword">AS</span> <span class="keyword">value</span></span><br><span class="line"><span class="keyword">FROM</span> agg_table basic</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> <span class="keyword">id</span>,city</span><br></pre></td></tr></table></figure>
+
+<h3 id="CollapsingMergeTree"><a href="#CollapsingMergeTree" class="headerlink" title="CollapsingMergeTree"></a>CollapsingMergeTree</h3><p>对于ClickHouse这类高性能分析性数据库而言，对数据源文件修改是代价高昂的操作。相对于修改源文件，会将修改和删除转换成新增操作，以增代删。</p>
+<p><code>CollapsingMergeTree</code>定义一个<code>sign</code>标记位字段，记录数据行的状态。如果sign标记为1，是一行有效的数据。sign标记为-1，表示这行数据需要被删除。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> collpase_table(</span><br><span class="line">	<span class="keyword">id</span> <span class="keyword">String</span>,</span><br><span class="line">  code Int32,</span><br><span class="line">  create_time DateTime,</span><br><span class="line">  <span class="keyword">sign</span> <span class="built_in">Int8</span></span><br><span class="line">)<span class="keyword">ENGINE</span>=CollapsingMergeTree(<span class="keyword">sign</span>)</span><br><span class="line"><span class="keyword">PARTITION</span> <span class="keyword">BY</span> toYYMM(create_time)</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">id</span></span><br></pre></td></tr></table></figure>
+
+<p><code>CollapsingMergeTree</code> 同样以order by判断唯一性的依据。</p>
+<p>（1）折叠数据不是实时触发的，和其他MergeTree变种引擎一样，这项特性在分区合并之后才会体现。分区合并之前，用户看到的是旧的数据。有2中方法解决：</p>
+<ul>
+<li><p>查询之前使用<code>optimize TABLE table_name FINAL</code> 强制分区合并，但是方法效率很低</p>
+</li>
+<li><p>改变查询方式</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="keyword">id</span>, <span class="keyword">sum</span>(code), <span class="keyword">count</span>(coude), <span class="keyword">avg</span>(code), uniq(code)</span><br><span class="line"><span class="keyword">FROM</span> collpase_table</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> <span class="keyword">id</span></span><br></pre></td></tr></table></figure>
+
+<p>改成</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="keyword">id</span>, <span class="keyword">sum</span>(code*<span class="keyword">sign</span>), <span class="keyword">count</span>(code*<span class="keyword">sign</span>), <span class="keyword">avg</span>(code*<span class="keyword">sign</span>), uniq(code*<span class="keyword">sign</span>)</span><br><span class="line"><span class="keyword">FROM</span> collpase_table</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> <span class="keyword">id</span></span><br><span class="line"><span class="keyword">HAVING</span> <span class="keyword">SUM</span>(<span class="keyword">sign</span>) &gt;<span class="number">0</span></span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<p>（2）只有相同分区内的数据才能被折叠，</p>
+<p>（3）<code>CollapsingMergeTree</code>对写入顺序有着严格的要求。如果按照正常顺序写入，先写入sign=1, 再写入sign=-1，则能够正常折叠。这种现象是<code>CollapsingMergeTree</code>的处理机制引起的，它要求sign=1和sign=-1的数据相邻，而分区内的数据基于order by排序，要实现sign=1和sign=-1的数据相邻，需要按照顺序写入。</p>
+<p>如果数据的写入程序是单线程，可以控制写入顺序；如果是多线程，可以使用CollapsingMergeTree</p>
+<h2 id="参考文档"><a href="#参考文档" class="headerlink" title="参考文档"></a>参考文档</h2><ol>
+<li><a href="https://clickhouse.tech/docs/zh/" target="_blank" rel="noopener">什么是ClickHouse</a></li>
+<li>ClickH原理解析和应用实践</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/ClickHouse/" rel="tag"># ClickHouse</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/01/02/golang-gc-intro/" rel="prev" title="Golang垃圾回收(GC)介绍">
+      <i class="fa fa-chevron-left"></i> Golang垃圾回收(GC)介绍
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#OLAP场景的关键特征"><span class="nav-number">1.</span> <span class="nav-text">OLAP场景的关键特征</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#ClickHouse不适用的场景"><span class="nav-number">1.1.</span> <span class="nav-text">ClickHouse不适用的场景</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ClickHouse的MergeTree引擎"><span class="nav-number">2.</span> <span class="nav-text">ClickHouse的MergeTree引擎</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#MergeTree的创建方式和存储方式"><span class="nav-number">2.1.</span> <span class="nav-text">MergeTree的创建方式和存储方式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#MergeTree的创建方式"><span class="nav-number">2.1.1.</span> <span class="nav-text">MergeTree的创建方式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#MergeTree的存储结构"><span class="nav-number">2.1.2.</span> <span class="nav-text">MergeTree的存储结构</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#数据分区"><span class="nav-number">2.1.3.</span> <span class="nav-text">数据分区</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#分区目录的命名规则"><span class="nav-number">2.1.4.</span> <span class="nav-text">分区目录的命名规则</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#一级索引"><span class="nav-number">2.1.5.</span> <span class="nav-text">一级索引</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#数据存储"><span class="nav-number">2.1.6.</span> <span class="nav-text">数据存储</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#数据标记"><span class="nav-number">2.1.7.</span> <span class="nav-text">数据标记</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#数据标记的工作方式"><span class="nav-number">2.1.8.</span> <span class="nav-text">数据标记的工作方式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#数据写入过程"><span class="nav-number">2.1.9.</span> <span class="nav-text">数据写入过程</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#数据读取过程"><span class="nav-number">2.1.10.</span> <span class="nav-text">数据读取过程</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MergeTree系列表引擎"><span class="nav-number">3.</span> <span class="nav-text">MergeTree系列表引擎</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#ReplacingMergeTree"><span class="nav-number">3.1.</span> <span class="nav-text">ReplacingMergeTree</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#SummingMergeTree"><span class="nav-number">3.2.</span> <span class="nav-text">SummingMergeTree</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#AggregatingMergeTree"><span class="nav-number">3.3.</span> <span class="nav-text">AggregatingMergeTree</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CollapsingMergeTree"><span class="nav-number">3.4.</span> <span class="nav-text">CollapsingMergeTree</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考文档"><span class="nav-number">4.</span> <span class="nav-text">参考文档</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">26</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liangyaopei" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yaopei.liang@foxmail.com" title="E-Mail → mailto:yaopei.liang@foxmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://github.com/liangyaopei" title="https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank">Github</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
