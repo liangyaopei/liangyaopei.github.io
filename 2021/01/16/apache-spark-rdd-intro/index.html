@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liangyaopei.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="RDD(Resilient Distributed Datasets,弹性分布式数据集)是一个分布式的内存抽象，让程序设计员在高效容错的条件下，在大规模的集群里执行基于内存的计算。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Apache Saprk RDD介绍">
+<meta property="og:url" content="https://liangyaopei.github.io/2021/01/16/apache-spark-rdd-intro/index.html">
+<meta property="og:site_name" content="Random walk to my blog">
+<meta property="og:description" content="RDD(Resilient Distributed Datasets,弹性分布式数据集)是一个分布式的内存抽象，让程序设计员在高效容错的条件下，在大规模的集群里执行基于内存的计算。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/16/apache-spark-rdd-intro/rdd_example.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/16/apache-spark-rdd-intro/rdd_dependencies.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/16/apache-spark-rdd-intro/dag_schedule.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/16/apache-spark-rdd-intro/task_schedule.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/16/apache-spark-rdd-intro/bsp_model.png">
+<meta property="article:published_time" content="2021-01-16T03:50:51.000Z">
+<meta property="article:modified_time" content="2021-01-16T09:00:14.736Z">
+<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:tag" content="Apache Spark">
+<meta property="article:tag" content="RDD">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://liangyaopei.github.io/2021/01/16/apache-spark-rdd-intro/rdd_example.jpg">
+
+<link rel="canonical" href="https://liangyaopei.github.io/2021/01/16/apache-spark-rdd-intro/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Apache Saprk RDD介绍 | Random walk to my blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Random walk to my blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">my blog for sharing my knowledge,experience and viewpoint</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2021/01/16/apache-spark-rdd-intro/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Random walk to my blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Apache Saprk RDD介绍
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-01-16 11:50:51 / 修改时间：17:00:14" itemprop="dateCreated datePublished" datetime="2021-01-16T11:50:51+08:00">2021-01-16</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Data-Processing/" itemprop="url" rel="index"><span itemprop="name">Data Processing</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>RDD(Resilient Distributed Datasets,弹性分布式数据集)是一个分布式的内存抽象，让程序设计员在高效容错的条件下，在大规模的集群里执行基于内存的计算。</p>
+<a id="more"></a> 
+
+
+<h3 id="MapReduce-RDD的背景"><a href="#MapReduce-RDD的背景" class="headerlink" title="MapReduce: RDD的背景"></a>MapReduce: RDD的背景</h3><p>在RDD之前的计算框架，不善于处理2种应用：迭代式的算法（iterative algorithms）和交互式的数据挖掘工具（ineractive data mining tools）。</p>
+<blockquote>
+<p>迭代式的算法: 下一阶段的计算会频繁使用到之前的数据， 例如PageRank，K-means集群算法，逻辑回归算法。</p>
+<p>交互式的程序：程序运行过程中依赖用户的输入来确定下一步的计算。</p>
+</blockquote>
+<p>RDD之前的计算框架，没有很好地复用计算阶段之间的数据。例如，MapReduce框架，计算完一个阶段的数据，将结果输出到外部的静态储存系统，例如，分布式文件系统，这造成数据复制，磁盘I/O，序列化的开销，并且占据了程序运行的大部分时间。而且，这些框架的容错，是通过不同机器之间同步数据/更新日志来实现的。对于数据密集型的应用，这些数据同步的操作使用更多的网络带宽，速度远慢于内存读取。</p>
+<h3 id="Resilient-Distributed-Datasets"><a href="#Resilient-Distributed-Datasets" class="headerlink" title="Resilient Distributed Datasets"></a>Resilient Distributed Datasets</h3><p>RDD是一个只读的，分片的记录集合。RDD只能通过(1)静态存储中的数据（2）其他RDD来创建。创建RDD的操作被称为<code>Transformation</code>，例如<code>map</code>, <code>filter</code>。  </p>
+<p><code>org.apache.spark.rdd/RDD.Scala</code>中描述, RDD有以下特性：</p>
+<ul>
+<li>一个partition列表，是数据集的一部分。</li>
+<li>一个其他RDD的依赖列表</li>
+<li>一个函数，用来计算partition的分片。</li>
+<li>partitioner，返回RDD是否hash/范围分片的元数据（可选）</li>
+<li>列出Partition p能快速访问的节点，基于数据局部性（可选）</li>
+</ul>
+<h3 id="RDD的操作"><a href="#RDD的操作" class="headerlink" title="RDD的操作"></a>RDD的操作</h3><p>下面的代码中，<code>lines</code>创建了一个来自HDFS文件的RDD，errors是<code>lines</code>创建的RDD。</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">lines = spark.textFile(<span class="string">"hdfs://..."</span>)</span><br><span class="line">errors = lines.filter(_.startsWith(<span class="string">"ERROR"</span>))</span><br><span class="line">errors.persist()</span><br><span class="line">errors.count()</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">// Count errors mentioning MySQL:</span></span><br><span class="line">errors.filter(_.contains(<span class="string">"MySQL"</span>)).count()</span><br><span class="line"><span class="comment">// Return the time fields of errors mentioning</span></span><br><span class="line"><span class="comment">// HDFS as an array (assuming time is field</span></span><br><span class="line"><span class="comment">// number 3 in a tab-separated format):</span></span><br><span class="line">errors.filter(_.contains(<span class="string">"HDFS"</span>))</span><br><span class="line">      .map(_.split(’\t’)(<span class="number">3</span>))</span><br><span class="line">      .collect()</span><br></pre></td></tr></table></figure>
+
+
+<p><img src="rdd_example.jpg" alt="rdd_example"></p>
+<p>RDD的操作分为<code>Transformation</code>和<code>Action</code>，<code>Transformation</code>是数据的转换，是延时执行的，只有遇到后面的<code>Action</code>操作才会真正执行。</p>
+<h3 id="RDD的依赖关系窄依赖与宽依赖"><a href="#RDD的依赖关系窄依赖与宽依赖" class="headerlink" title="RDD的依赖关系窄依赖与宽依赖"></a>RDD的依赖关系窄依赖与宽依赖</h3><p>论文中，对RDD对象的接口的描述：</p>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>意义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>partitions()</td>
+<td>返回Partition对象列表</td>
+</tr>
+<tr>
+<td>preferredLocations(<em>p</em>)</td>
+<td>列出Partition p能快速访问的节点，基于数据局部性</td>
+</tr>
+<tr>
+<td>dependencies()</td>
+<td>返回依赖列表</td>
+</tr>
+<tr>
+<td>iterator(<em>p, parentIters</em>)</td>
+<td>计算partition p的父partition</td>
+</tr>
+<tr>
+<td>partitioner()</td>
+<td>返回RDD是否hash/范围分片的元数据</td>
+</tr>
+</tbody></table>
+<p><img src="rdd_dependencies.jpg" alt="rdd_dependencies"></p>
+<p>如果父RDD的分区最多只被一个子RDD使用，这就是窄依赖（narrow dependencies）；如果父RDD的分区最多个子RDD使用，这就是宽依赖（wide dependencies）。</p>
+<p>窄依赖的RDD，支持同一个节点内的数据的流水线执行，不需要数据在节点之间的传输。与MapReduce比较，节省了数据传输的花销。而宽依赖的RDD，需要多个父RDD的数据，需要多个节点之间数据的shuffle，来传输数据。</p>
+<p>第二，窄依赖的RDD，节点故障后的恢复更为高效，只需要重新计算丢失的RDD数据。而宽依赖的RDD，一个节点故障后，需要从宽依赖的继承图中的祖先节点，开始重新计算。</p>
+<h3 id="Spark任务调度"><a href="#Spark任务调度" class="headerlink" title="Spark任务调度"></a>Spark任务调度</h3><p>RDD之间的依赖关系会生成一个DAG （Directed acyclic graph，有向无环图）。</p>
+<p>Spark的调度大体可以分成如下两部分：</p>
+<ol>
+<li>DAG 调度：对RDD进行转换，生成按stage组织的任务集合（Task set）。</li>
+</ol>
+<p><img src="dag_schedule.png" alt="dag_schedule"></p>
+<p>2.Task调度：<strong>按照stage</strong>在分布式环境调度任务。</p>
+<p><img src="task_schedule.png" alt="task_schedule"></p>
+<h4 id="DAG调度"><a href="#DAG调度" class="headerlink" title="DAG调度"></a>DAG调度</h4><p>在本阶段内，DAG调度器将完整的DAG划分为不同的Stage，生成可运行的Task。</p>
+<p>Stage划分根据rdd之间的依赖关系类型进行，即当判断相邻两级RDD间的依赖类型为窄依赖时，则将它们划分为同一Stage，否则分成不同的Stage。</p>
+<p><img src="bsp_model.png" alt="bsp_model"></p>
+<p>Apache Spark的任务调度是一个BSP(Bulk Synchronous Parallel，整体同步并行计算模型)。在每个stage之间的转换，会有一个屏障（barrier），由协调者（coordinator）确定所有节点都已经完成了上一个Stage的计算，然后coordinator通知下游节点去进行下一个Stage的计算，这属于拉（pull）模型，由消费者主动向消息中间件拉取消息。</p>
+<p>BSP有2个好处：</p>
+<p>1.使故障恢复更为迅速。当某个stage出现故障时，只需要恢复到上一个stage再开始计算，不需要重新计算。</p>
+<p>2.节省同时调度全部节点的开销，支持更大的数据处理吞吐量。每个节点完成计算的时间不一样，coordinator不需要同时调度所有节点。另外，执行较快的节点，可以执行其他慢节点的任务，资源不足的情况下，一个节点可以处理所有的stage。</p>
+<p>而BSP的缺点是，因为需要调度，相比apache flink，处理的数据的延时不能降到很低。</p>
+<h3 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h3><ol>
+<li><a href="http://people.csail.mit.edu/matei/papers/2012/nsdi_spark.pdf" target="_blank" rel="noopener">Resilient Distributed Datasets: A Fault-Tolerant Abstraction for In-Memory Cluster Computing</a></li>
+</ol>
+<blockquote>
+<p>我的博客：<a href="http://www.liangyaopei.com" target="_blank" rel="noopener">www.liangyaopei.com</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Apache-Spark/" rel="tag"># Apache Spark</a>
+              <a href="/tags/RDD/" rel="tag"># RDD</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/01/09/clickhouse-essentials/" rel="prev" title="ClickHouse及其MergeTree引擎">
+      <i class="fa fa-chevron-left"></i> ClickHouse及其MergeTree引擎
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#MapReduce-RDD的背景"><span class="nav-number">1.</span> <span class="nav-text">MapReduce: RDD的背景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Resilient-Distributed-Datasets"><span class="nav-number">2.</span> <span class="nav-text">Resilient Distributed Datasets</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#RDD的操作"><span class="nav-number">3.</span> <span class="nav-text">RDD的操作</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#RDD的依赖关系窄依赖与宽依赖"><span class="nav-number">4.</span> <span class="nav-text">RDD的依赖关系窄依赖与宽依赖</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Spark任务调度"><span class="nav-number">5.</span> <span class="nav-text">Spark任务调度</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#DAG调度"><span class="nav-number">5.1.</span> <span class="nav-text">DAG调度</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#参考文献"><span class="nav-number">6.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">27</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">30</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liangyaopei" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yaopei.liang@foxmail.com" title="E-Mail → mailto:yaopei.liang@foxmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://github.com/liangyaopei" title="https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank">Github</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
