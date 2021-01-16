@@ -29,11 +29,11 @@
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://liangyaopei.github.io/2021/01/16/apache-spark-rdd-intro/rdd_example.jpg">
 <meta property="og:image" content="https://liangyaopei.github.io/2021/01/16/apache-spark-rdd-intro/rdd_dependencies.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/16/apache-spark-rdd-intro/bsp_model.png">
 <meta property="og:image" content="https://liangyaopei.github.io/2021/01/16/apache-spark-rdd-intro/dag_schedule.png">
 <meta property="og:image" content="https://liangyaopei.github.io/2021/01/16/apache-spark-rdd-intro/task_schedule.png">
-<meta property="og:image" content="https://liangyaopei.github.io/2021/01/16/apache-spark-rdd-intro/bsp_model.png">
 <meta property="article:published_time" content="2021-01-16T03:50:51.000Z">
-<meta property="article:modified_time" content="2021-01-16T09:00:14.736Z">
+<meta property="article:modified_time" content="2021-01-16T14:27:04.168Z">
 <meta property="article:author" content="Patrick(liangyaopei)">
 <meta property="article:tag" content="Apache Spark">
 <meta property="article:tag" content="RDD">
@@ -193,7 +193,7 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-01-16 11:50:51 / 修改时间：17:00:14" itemprop="dateCreated datePublished" datetime="2021-01-16T11:50:51+08:00">2021-01-16</time>
+              <time title="创建时间：2021-01-16 11:50:51 / 修改时间：22:27:04" itemprop="dateCreated datePublished" datetime="2021-01-16T11:50:51+08:00">2021-01-16</time>
             </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -274,7 +274,13 @@
 <p>如果父RDD的分区最多只被一个子RDD使用，这就是窄依赖（narrow dependencies）；如果父RDD的分区最多个子RDD使用，这就是宽依赖（wide dependencies）。</p>
 <p>窄依赖的RDD，支持同一个节点内的数据的流水线执行，不需要数据在节点之间的传输。与MapReduce比较，节省了数据传输的花销。而宽依赖的RDD，需要多个父RDD的数据，需要多个节点之间数据的shuffle，来传输数据。</p>
 <p>第二，窄依赖的RDD，节点故障后的恢复更为高效，只需要重新计算丢失的RDD数据。而宽依赖的RDD，一个节点故障后，需要从宽依赖的继承图中的祖先节点，开始重新计算。</p>
-<h3 id="Spark任务调度"><a href="#Spark任务调度" class="headerlink" title="Spark任务调度"></a>Spark任务调度</h3><p>RDD之间的依赖关系会生成一个DAG （Directed acyclic graph，有向无环图）。</p>
+<h3 id="Spark任务调度"><a href="#Spark任务调度" class="headerlink" title="Spark任务调度"></a>Spark任务调度</h3><h4 id="BSP模型"><a href="#BSP模型" class="headerlink" title="BSP模型"></a>BSP模型</h4><p>Apache Spark的任务调度是一个BSP(Bulk Synchronous Parallel，整体同步并行计算模型)。在每个stage之间的转换，会有一个屏障（barrier），由协调者（coordinator）确定所有节点都已经完成了上一个Stage的计算，然后coordinator通知下游节点去进行下一个Stage的计算，这属于拉（pull）模型，由消费者主动向消息中间件拉取消息。</p>
+<p><img src="bsp_model.png" alt="bsp_model"></p>
+<p>BSP有2个好处：</p>
+<p>1.使故障恢复更为迅速。当某个stage出现故障时，只需要恢复到上一个stage再开始计算，不需要重新计算。</p>
+<p>2.节省同时调度全部节点的开销，支持更大的数据处理吞吐量。每个节点完成计算的时间不一样，coordinator不需要同时调度所有节点。另外，执行较快的节点，可以执行其他慢节点的任务，资源不足的情况下，一个节点可以处理所有的stage。</p>
+<p>而BSP的缺点是，因为需要调度，相比apache flink，处理的数据的延时不能降到很低。</p>
+<h4 id="任务调度"><a href="#任务调度" class="headerlink" title="任务调度"></a>任务调度</h4><p>RDD之间的依赖关系会生成一个DAG （Directed acyclic graph，有向无环图）。</p>
 <p>Spark的调度大体可以分成如下两部分：</p>
 <ol>
 <li>DAG 调度：对RDD进行转换，生成按stage组织的任务集合（Task set）。</li>
@@ -284,17 +290,27 @@
 <p><img src="task_schedule.png" alt="task_schedule"></p>
 <h4 id="DAG调度"><a href="#DAG调度" class="headerlink" title="DAG调度"></a>DAG调度</h4><p>在本阶段内，DAG调度器将完整的DAG划分为不同的Stage，生成可运行的Task。</p>
 <p>Stage划分根据rdd之间的依赖关系类型进行，即当判断相邻两级RDD间的依赖类型为窄依赖时，则将它们划分为同一Stage，否则分成不同的Stage。</p>
-<p><img src="bsp_model.png" alt="bsp_model"></p>
-<p>Apache Spark的任务调度是一个BSP(Bulk Synchronous Parallel，整体同步并行计算模型)。在每个stage之间的转换，会有一个屏障（barrier），由协调者（coordinator）确定所有节点都已经完成了上一个Stage的计算，然后coordinator通知下游节点去进行下一个Stage的计算，这属于拉（pull）模型，由消费者主动向消息中间件拉取消息。</p>
-<p>BSP有2个好处：</p>
-<p>1.使故障恢复更为迅速。当某个stage出现故障时，只需要恢复到上一个stage再开始计算，不需要重新计算。</p>
-<p>2.节省同时调度全部节点的开销，支持更大的数据处理吞吐量。每个节点完成计算的时间不一样，coordinator不需要同时调度所有节点。另外，执行较快的节点，可以执行其他慢节点的任务，资源不足的情况下，一个节点可以处理所有的stage。</p>
-<p>而BSP的缺点是，因为需要调度，相比apache flink，处理的数据的延时不能降到很低。</p>
+<h4 id="Task调度"><a href="#Task调度" class="headerlink" title="Task调度"></a>Task调度</h4><p>Task调度<br> 在本阶段内，Task调度器根据现有Executor资源分布情况，按照Stage分发Task至Executor上执行。</p>
+<p>Executor启动时，将自身的资源情况（cpu，内存）通过rpc接口在Driver节点进行注册，Task调度时，调度器在注册结果中选择合适的Executor进行任务加载。选择的过程主要参考两方面，即Executor空闲情况和本地性（Locality）。前者比较好理解，以下重点对后者进行说明。</p>
+<p>由于数据在进程/节点间传输的开销通常难以忽视，因而为了提升性能，需要将计算逻辑（即Task）尽可能贴近数据，这就是本地性（Locality)。在Spark中，按照下列不同级别本地性优先原则进行Executor选择：</p>
+<ul>
+<li>本地进程优先（PROCESS_LOCAL）</li>
+<li>节点优先（PROCESS_LOCAL）</li>
+<li>无优先（NO_PREF）</li>
+<li>机架优先（RACK_LOCAL）</li>
+</ul>
+<p>当上一级的本地性不能被满足时，如目标Executor已经没有空闲资源，调度有两种选择，即将本地性降级或等待Executor变为可用，可以通过配置各级别的等待时间来控制。</p>
+<p>当一次调度无法为所有的Task分配合适的Executor时，调度器会通过后台线程定时进行延时调度，直到所有任务得到分配。</p>
+<p>Task在Executor上完成执行后，通过rpc通知Driver，将该任务状态置为完成。当该Stage对应的所有任务均执行完成后，方才调度下一Stage，直至任务最终完成。</p>
 <h3 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h3><ol>
 <li><a href="http://people.csail.mit.edu/matei/papers/2012/nsdi_spark.pdf" target="_blank" rel="noopener">Resilient Distributed Datasets: A Fault-Tolerant Abstraction for In-Memory Cluster Computing</a></li>
+<li><a href="https://shivaram.org/publications/drizzle-sosp17.pdf" target="_blank" rel="noopener">Drizzle: Fast and Adaptable Stream Processing at Scale</a></li>
 </ol>
 <blockquote>
+<p>我的公众号：lyp分享的地方</p>
+<p>我的知乎专栏: <a href="https://zhuanlan.zhihu.com/c_1275466546035740672" target="_blank" rel="noopener">https://zhuanlan.zhihu.com/c_1275466546035740672</a></p>
 <p>我的博客：<a href="http://www.liangyaopei.com" target="_blank" rel="noopener">www.liangyaopei.com</a></p>
+<p>Github Page: <a href="https://liangyaopei.github.io/">https://liangyaopei.github.io/</a></p>
 </blockquote>
 
     </div>
@@ -392,7 +408,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#MapReduce-RDD的背景"><span class="nav-number">1.</span> <span class="nav-text">MapReduce: RDD的背景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Resilient-Distributed-Datasets"><span class="nav-number">2.</span> <span class="nav-text">Resilient Distributed Datasets</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#RDD的操作"><span class="nav-number">3.</span> <span class="nav-text">RDD的操作</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#RDD的依赖关系窄依赖与宽依赖"><span class="nav-number">4.</span> <span class="nav-text">RDD的依赖关系窄依赖与宽依赖</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Spark任务调度"><span class="nav-number">5.</span> <span class="nav-text">Spark任务调度</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#DAG调度"><span class="nav-number">5.1.</span> <span class="nav-text">DAG调度</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#参考文献"><span class="nav-number">6.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#MapReduce-RDD的背景"><span class="nav-number">1.</span> <span class="nav-text">MapReduce: RDD的背景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Resilient-Distributed-Datasets"><span class="nav-number">2.</span> <span class="nav-text">Resilient Distributed Datasets</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#RDD的操作"><span class="nav-number">3.</span> <span class="nav-text">RDD的操作</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#RDD的依赖关系窄依赖与宽依赖"><span class="nav-number">4.</span> <span class="nav-text">RDD的依赖关系窄依赖与宽依赖</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Spark任务调度"><span class="nav-number">5.</span> <span class="nav-text">Spark任务调度</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#BSP模型"><span class="nav-number">5.1.</span> <span class="nav-text">BSP模型</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#任务调度"><span class="nav-number">5.2.</span> <span class="nav-text">任务调度</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#DAG调度"><span class="nav-number">5.3.</span> <span class="nav-text">DAG调度</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Task调度"><span class="nav-number">5.4.</span> <span class="nav-text">Task调度</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#参考文献"><span class="nav-number">6.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
