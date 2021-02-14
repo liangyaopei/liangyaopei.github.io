@@ -22,18 +22,20 @@
 
   <meta name="description" content="Go内部的内存结构每一个Go进程都拥有由操作系统分配的虚拟内存，这是进程能访问的所有内存空间。虚拟内存中真正使用的内存叫做Resident Set。">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Golang内存管理">
+<meta property="og:title" content="Golang内存分配">
 <meta property="og:url" content="https://liangyaopei.github.io/2020/10/04/golang-memory-management/index.html">
 <meta property="og:site_name" content="Random walk to my blog">
 <meta property="og:description" content="Go内部的内存结构每一个Go进程都拥有由操作系统分配的虚拟内存，这是进程能访问的所有内存空间。虚拟内存中真正使用的内存叫做Resident Set。">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://liangyaopei.github.io/2020/10/04/golang-memory-management/resident_set.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/10/04/golang-memory-management/mcache_alloc.png">
 <meta property="og:image" content="https://liangyaopei.github.io/2020/10/04/golang-memory-management/mspan.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2020/10/04/golang-memory-management/mem_alloc_summary.png">
 <meta property="article:published_time" content="2020-10-04T08:38:20.000Z">
-<meta property="article:modified_time" content="2020-10-04T09:25:08.754Z">
+<meta property="article:modified_time" content="2021-02-14T02:24:55.255Z">
 <meta property="article:author" content="Patrick(liangyaopei)">
-<meta property="article:tag" content="Golange">
-<meta property="article:tag" content="Memory management">
+<meta property="article:tag" content="Golang">
+<meta property="article:tag" content="Memory allocation">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:image" content="https://liangyaopei.github.io/2020/10/04/golang-memory-management/resident_set.png">
 
@@ -50,7 +52,7 @@
   };
 </script>
 
-  <title>Golang内存管理 | Random walk to my blog</title>
+  <title>Golang内存分配 | Random walk to my blog</title>
   
 
 
@@ -179,7 +181,7 @@
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
-          Golang内存管理
+          Golang内存分配
         </h1>
 
         <div class="post-meta">
@@ -188,10 +190,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2020-10-04 16:38:20 / 修改时间：17:25:08" itemprop="dateCreated datePublished" datetime="2020-10-04T16:38:20+08:00">2020-10-04</time>
+              <time title="创建时间：2020-10-04 16:38:20" itemprop="dateCreated datePublished" datetime="2020-10-04T16:38:20+08:00">2020-10-04</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-02-14 10:24:55" itemprop="dateModified" datetime="2021-02-14T10:24:55+08:00">2021-02-14</time>
+              </span>
 
           
 
@@ -208,37 +216,33 @@
 <a id="more"></a> 
 <p><img src="resident_set.png" alt="resident_set"></p>
 <p>Golang中没有分年代的内存管理，这是由<a href="http://goog-perftools.sourceforge.net/doc/tcmalloc.html" target="_blank" rel="noopener">TCMalloC</a>(Thread-Caching Malloc，线程缓存的内存分配)模型决定的。</p>
-<h1 id="Page-Heap-mheap"><a href="#Page-Heap-mheap" class="headerlink" title="Page Heap(mheap)"></a>Page Heap(mheap)</h1><p><code>mheap</code>是Go保存动态数据，即大小不能再编译期间确定的数据，的地方。这也是垃圾回收发生的主要地方。<br><code>Resident set</code>分成8KB每页，由一个全局的<code>mheap</code>对象来管理。</p>
-<blockquote>
-<p>大的对象(大小&gt; 32kb)通过<code>mheap</code>直接分配</p>
-</blockquote>
-<p><code>mheap</code>通过不同的结构管理页(page)</p>
-<ul>
-<li><p><code>mspan</code>: <code>mspan</code>是<code>mheap</code>中管理内存最基本的结构。它是一个双向链表，保存起始页的地址，span的大小，span中页(page)的数量。<br><img src="mspan.png" alt="mspan"><br>每个span存在两次，一次是带指针的对象（scan class），一次是不带指针的对象(noscan class).</p>
-</li>
-<li><p><code>mcentral</code>: <code>mcentral</code>将相同大小的span聚合起来。每个<code>mcentral</code>包含2个<code>mspan</code>链表</p>
+<p>在任意一个时间点，<code>M</code>只会处理一个goroutine的执行，在goroutine的执行过程中，如果需要进行内存分配，那么当前的goroutine会使用对应<code>P</code>的<code>mcache</code>，在<code>mcache</code>中寻找第一个可用的内存块来进行内存分配，这些可用的内存块是Golang提前申请并组织好的，这就是Golang中内存池的应用场景，并且这个内存池还是一个多级的内存列表，通过<code>runtime/malloc.go</code>中描述。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Memory allocator.</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="comment">// This was originally based on tcmalloc, but has diverged quite a bit.</span></span><br><span class="line"><span class="comment">// http://goog-perftools.sourceforge.net/doc/tcmalloc.html</span></span><br><span class="line">...</span><br><span class="line"><span class="comment">// The allocator's data structures are:</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="comment">//	fixalloc: a free-list allocator for fixed-size off-heap objects,</span></span><br><span class="line"><span class="comment">//		used to manage storage used by the allocator.</span></span><br><span class="line"><span class="comment">//	mheap: the malloc heap, managed at page (8192-byte) granularity.</span></span><br><span class="line"><span class="comment">//	mspan: a run of in-use pages managed by the mheap.</span></span><br><span class="line"><span class="comment">//	mcentral: collects all spans of a given size class.</span></span><br><span class="line"><span class="comment">//	mcache: a per-P cache of mspans with free space.</span></span><br><span class="line"><span class="comment">//	mstats: allocation statistics.</span></span><br></pre></td></tr></table></figure>
+
+<p><img src="mcache_alloc.png" alt="mcache_alloc"></p>
+<h1 id="内存分配"><a href="#内存分配" class="headerlink" title="内存分配"></a>内存分配</h1><p><code>mcache</code>: P中的内存缓存，用来保存小对象(&lt;=32Kb)。虽然这组成了线程栈，它是堆的一部分，用于动态数据。<code>Goroutines</code>可以从<code>mcache</code>中无锁地拿到内存，因为一个P一次只处理一个G。<br><code>mcache</code>从<code>mcentral</code>中获取内存。</p>
+<h2 id="小对象的内存分配"><a href="#小对象的内存分配" class="headerlink" title="小对象的内存分配"></a>小对象的内存分配</h2><p>对小对象的内存分配（官方定义为32KB以下），主要是由mcache来承担的。</p>
+<p><code>mspan</code>: <code>mspan</code>是<code>mheap</code>中管理内存最基本的结构。它是一个双向链表，保存起始页的地址，span的大小，span中页(page)的数量。<br><img src="mspan.png" alt="mspan"><br>每个span存在两次，一次是带指针的对象（scan class），一次是不带指针的对象(noscan class).</p>
+<p><code>mcentral</code>: <code>mcentral</code>将相同大小的span聚合起来。每个<code>mcentral</code>包含2个<code>mspan</code>链表</p>
 <ul>
 <li>empty: 没有缓存在<code>mcache</code>的空闲对象的span的双向链表。当一个span释放了，移动到非空链表</li>
 <li>non-empty: 包含空对象的span的双向链表。当一个<code>span</code>被<code>mcentral</code>中请求，从非空链表中获取，移动到空链表</li>
 </ul>
-</li>
-<li><p><code>arena</code>: 堆内存根据虚拟内存的分配进行增长或者收缩。当需要更多的内存，<code>mheap</code>从虚拟内存中以64MB的内存卡拉取，就叫做<code>arena</code></p>
-</li>
-<li><p><code>mcache</code>: P中的内存缓存，用来保存小对象(&lt;=32Kb)。虽然这组成了线程栈，它是堆的一部分，用于动态数据。<code>Goroutines</code>可以从<code>mcache</code>中无锁地拿到内存，因为一个P一次只处理一个G。<code>mcache</code>从<code>mcentral</code>中获取内存</p>
-</li>
-</ul>
-<h1 id="内存分配"><a href="#内存分配" class="headerlink" title="内存分配"></a>内存分配</h1><p>根据对象大小的不同，go的内存分配有3种类型：</p>
+<h2 id="大对象的内存分配"><a href="#大对象的内存分配" class="headerlink" title="大对象的内存分配"></a>大对象的内存分配</h2><p>大对象（32KB以上）都是直接在堆内存(mheap)中直接进行分配的。</p>
+<p><code>mheap</code>是Go保存动态数据，即大小不能再编译期间确定的数据，的地方。这也是垃圾回收发生的主要地方。<br><code>Resident set</code>分成8KB每页，由一个全局的<code>mheap</code>对象来管理。</p>
+<p><code>mheap</code>的结构是由<code>arena</code>组成的，这是一块虚拟内存。在64位操作系统中是64MB，在32位的操作系统中是4MB。每一个arena都会关联一个heapArena对象，其保存了这块arena的元数据信息，而arena也映射了span中的所有内存页（Page）。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>根据对象大小的不同，go的内存分配有3种类型：</p>
 <p>Tiny(size &lt; 16B): Objects of size less than 16 bytes are allocated using the mcache’s tiny allocator. This is efficient and multiple tiny allocations are done on a single 16-byte block.</p>
 <p>Small(size 16B ~ 32KB): Objects of size between 16 bytes and 32 Kilobytes are allocated on the corresponding size class(mspan) on mcache of the P where the G is running.</p>
 <p>In both tiny and small allocation if the mspan’s list is empty the allocator will obtain a run of pages from the mheap to use for the mspan. If the mheap is empty or has no page runs large enough then it allocates a new group of pages (at least 1MB) from the OS.</p>
 <p>Large(size &gt; 32KB): Objects of size greater than 32 kilobytes are allocated directly on the corresponding size class of mheap. If the mheap is empty or has no page runs large enough then it allocates a new group of pages (at least 1MB) from the OS.</p>
-<h1 id="垃圾回收"><a href="#垃圾回收" class="headerlink" title="垃圾回收"></a>垃圾回收</h1><p>The process starts when a certain percentage(GC Percentage) of heap allocations are done and the collector does different phases of work:</p>
+<p>总结一下Go是如何进行内存分配:</p>
 <ul>
-<li><strong>Mark Setup</strong> (Stop the world): When GC starts, the collector turns on <strong><a href="https://www.memorymanagement.org/glossary/w.html#term-write-barrier" target="_blank" rel="noopener">write barriers</a></strong> so that data integrity can be maintained during the next concurrent phase. This step needs a very small pause as every running Goroutine is paused to enable this and then continues.</li>
-<li><strong>Marking</strong> (Concurrent): Once write barriers are turned on the actual marking process is started in parallel to the application using 25% of the available CPU capacity. The corresponding <code>P</code>s are reserved until marking is complete. This is done using dedicated Goroutines. Here the GC marks values in the heap that is alive(referenced from the Stack of any active Goroutines). When collection takes longer the process may employ active Goroutine from application to assist in the marking process. this is called <strong>Mark Assist</strong>.</li>
-<li><strong>Mark Termination</strong> (Stop the world): Once marking is done every active Goroutine is paused and write barriers are turned off and clean up tasks are started. The GC also calculates the next GC goal here. Once this is done the reserved <code>P</code>s are released back to the application.</li>
-<li><strong>Sweeping</strong> (Concurrent): Once the collection is done and allocations are attempted, the sweeping process starts to reclaim memory from the heap that is not marked alive. The amount of memory swept is synchronous to the amount being allocated.</li>
+<li>mcache中如果有空闲的空间，那么直接在mcache分配</li>
+<li>mcache如果没有，那么尝试去mcentral中获取一个空闲的mspan</li>
+<li>mcentral中也咩有可用的mspan，那么直接去mheap向操作系统申请可用的mspan</li>
 </ul>
+<p><img src="mem_alloc_summary.png" alt="summary"></p>
 <blockquote>
 <p>我的公众号：lyp_share</p>
 </blockquote>
@@ -275,8 +279,8 @@
 
       <footer class="post-footer">
           <div class="post-tags">
-              <a href="/tags/Golange/" rel="tag"># Golange</a>
-              <a href="/tags/Memory-management/" rel="tag"># Memory management</a>
+              <a href="/tags/Golang/" rel="tag"># Golang</a>
+              <a href="/tags/Memory-allocation/" rel="tag"># Memory allocation</a>
           </div>
 
         
@@ -350,7 +354,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Go内部的内存结构"><span class="nav-number">1.</span> <span class="nav-text">Go内部的内存结构</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Page-Heap-mheap"><span class="nav-number">2.</span> <span class="nav-text">Page Heap(mheap)</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#内存分配"><span class="nav-number">3.</span> <span class="nav-text">内存分配</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#垃圾回收"><span class="nav-number">4.</span> <span class="nav-text">垃圾回收</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Go内部的内存结构"><span class="nav-number">1.</span> <span class="nav-text">Go内部的内存结构</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#内存分配"><span class="nav-number">2.</span> <span class="nav-text">内存分配</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#小对象的内存分配"><span class="nav-number">2.1.</span> <span class="nav-text">小对象的内存分配</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#大对象的内存分配"><span class="nav-number">2.2.</span> <span class="nav-text">大对象的内存分配</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -377,7 +381,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">31</span>
+        <span class="site-state-item-count">30</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
