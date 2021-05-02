@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liangyaopei.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="SQL查询执行SQL查询的执行可以分为三部分：逻辑计划（Logical Planning），物理计划（Physical Planning）和执行（Execution）。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Apache Spark SQL的物理计划">
+<meta property="og:url" content="https://liangyaopei.github.io/2021/05/02/apache-spark-sql-optimize/index.html">
+<meta property="og:site_name" content="Random walk to my blog">
+<meta property="og:description" content="SQL查询执行SQL查询的执行可以分为三部分：逻辑计划（Logical Planning），物理计划（Physical Planning）和执行（Execution）。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/05/02/apache-spark-sql-optimize/query_execution.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/05/02/apache-spark-sql-optimize/physical_planning.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/05/02/apache-spark-sql-optimize/spark_sql.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/05/02/apache-spark-sql-optimize/reuse_exchange.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/05/02/apache-spark-sql-optimize/exchange_example.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/05/02/apache-spark-sql-optimize/not_reuse_exchange.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/05/02/apache-spark-sql-optimize/example_2.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/05/02/apache-spark-sql-optimize/join_comparasions.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/05/02/apache-spark-sql-optimize/example_3.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/05/02/apache-spark-sql-optimize/repartition.jpg">
+<meta property="article:published_time" content="2021-05-02T03:00:21.000Z">
+<meta property="article:modified_time" content="2021-05-02T08:15:39.002Z">
+<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:tag" content="Apache Spark">
+<meta property="article:tag" content="SQL Optimize">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://liangyaopei.github.io/2021/05/02/apache-spark-sql-optimize/query_execution.jpg">
+
+<link rel="canonical" href="https://liangyaopei.github.io/2021/05/02/apache-spark-sql-optimize/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Apache Spark SQL的物理计划 | Random walk to my blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Random walk to my blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">my blog for sharing my knowledge,experience and viewpoint</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2021/05/02/apache-spark-sql-optimize/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Random walk to my blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Apache Spark SQL的物理计划
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-05-02 11:00:21 / 修改时间：16:15:39" itemprop="dateCreated datePublished" datetime="2021-05-02T11:00:21+08:00">2021-05-02</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Data-Processing/" itemprop="url" rel="index"><span itemprop="name">Data Processing</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="SQL查询执行"><a href="#SQL查询执行" class="headerlink" title="SQL查询执行"></a>SQL查询执行</h2><p>SQL查询的执行可以分为三部分：逻辑计划（Logical Planning），物理计划（Physical Planning）和执行（Execution）。</p>
+<a id="more"></a> 
+
+
+<p><img src="query_execution.jpg" alt="query_execution"></p>
+<h3 id="逻辑计划"><a href="#逻辑计划" class="headerlink" title="逻辑计划"></a>逻辑计划</h3><ul>
+<li>SQL查询的树的表示</li>
+<li>它包含执行的工作内容，但不包含具体的细节</li>
+<li>组成包括：<ul>
+<li>关系运算符，Filter, Join, Project, … (<code>DataFrame</code>的转换)</li>
+<li>表达式：列转化，过滤条件，join的条件</li>
+</ul>
+</li>
+</ul>
+<h3 id="物理计划"><a href="#物理计划" class="headerlink" title="物理计划"></a>物理计划</h3><p>物理计划阶段，将一个优化后的逻辑计划转化成物理计划。物理计划连接了逻辑计划和RDD，包含查询执行的详细信息。</p>
+<p><img src="physical_planning.jpg" alt="physical_planning"></p>
+<p><code>Spark Plan</code>使用策略的查询计划(Query Planner)生成，例如，逻辑计划的<code>Join</code>可以对应到物理计划的<code>SortMergeJoin</code>或者<code>BroadcastHashJoin</code>。</p>
+<p><img src="spark_sql.jpg" alt="spark_sql"></p>
+<h2 id="SQL优化技巧"><a href="#SQL优化技巧" class="headerlink" title="SQL优化技巧"></a>SQL优化技巧</h2><h3 id="示例一：复用exchange"><a href="#示例一：复用exchange" class="headerlink" title="示例一：复用exchange"></a>示例一：复用exchange</h3><p><code>exchange</code>代表<code>shuffle</code>，物理中的物理数据移动。</p>
+<p><img src="reuse_exchange.jpg" alt="reuse_exchange.jpg"></p>
+<p>复用exchange需要：</p>
+<ul>
+<li>不同的分支是完全相同的</li>
+<li>可以通过<code>spark.sql.exchange.reuse</code>来关闭</li>
+<li>可以节省I/O和网络开销，因为只会扫描一遍数据，只有一次shuffle。</li>
+</ul>
+<p>下面是例子：</p>
+<p>数据表</p>
+<table>
+<thead>
+<tr>
+<th>post_id</th>
+<th>profile_id</th>
+<th>date</th>
+<th>interactions</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>1</td>
+<td>2019-01-01</td>
+<td>20</td>
+</tr>
+<tr>
+<td>2</td>
+<td>1</td>
+<td>2019-01-01</td>
+<td>15</td>
+</tr>
+<tr>
+<td>3</td>
+<td>1</td>
+<td>2019-01-01</td>
+<td>50</td>
+</tr>
+</tbody></table>
+<p>需要执行的SQL：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">df.groupBy(“profile_id”) </span><br><span class="line">.agg(sum(“interactions”).alias(“sum”)) </span><br><span class="line">.filter($”sum” &gt; 100 || $”sum” &lt; 20)</span><br><span class="line">.write(...)</span><br></pre></td></tr></table></figure>
+
+<p>使用<code>union</code>的·方式来改写：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">val dfSumBig = df </span><br><span class="line">	.groupBy(“profile_id”) </span><br><span class="line">	.agg(sum(“interactions”).alias(“sum”)) </span><br><span class="line">	.filter($”sum” &gt; 100)</span><br><span class="line"></span><br><span class="line">val dfSumSmall = df </span><br><span class="line">.groupBy(“profile_id”) </span><br><span class="line">.agg(sum(“interactions”).alias(“sum”)) </span><br><span class="line">.filter($”sum” &lt; 20)</span><br><span class="line"></span><br><span class="line">dfSumBig.union(dfSumSmall) .write(...)</span><br></pre></td></tr></table></figure>
+
+<p><img src="exchange_example.jpg" alt="exchange_example.jpg"></p>
+<p>假设更改sql语句, <code>dfSumSmall</code>需要过滤<code>profile_id</code>不为空的情况：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">val dfSumBig = df </span><br><span class="line">.groupBy(“profile_id”)</span><br><span class="line">.agg(sum(“interactions”).alias(“sum”)) </span><br><span class="line">.filter($”sum” &gt; 100)</span><br><span class="line"></span><br><span class="line">val dfSumSmall = df </span><br><span class="line">.filter($”profile_id”.isNotNull) </span><br><span class="line">.groupBy(“profile_id”) </span><br><span class="line">.agg(sum(“interactions”).alias(“sum”)) </span><br><span class="line">.filter($”sum” &lt; 20)</span><br><span class="line"></span><br><span class="line">dfSumBig.union(dfSumSmall) .write(...)</span><br></pre></td></tr></table></figure>
+
+<p>因为两者的语句不一样，无法复用<code>exchange</code></p>
+<p><img src="not_reuse_exchange.jpg" alt="not_reuse_exchange"></p>
+<p>将sql改成这样，使得<code>dfSumSmall</code>前面的部分与<code>dfSumBig</code>一样。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">val dfSumSmall = df</span><br><span class="line">.groupBy(“profile_id”)</span><br><span class="line">.agg(sum(“interactions”).alias(“sum”)) </span><br><span class="line">.filter($”sum” &lt; 20) </span><br><span class="line">.filter($”profile_id”.isNotNull) <span class="comment">-- Spark optimizer will move this filter back by calling a rule PushDownPredicate</span></span><br></pre></td></tr></table></figure>
+
+<p>Spark优化器会将<code>filter($”profile_id”.isNotNull)</code>下推到数据读取中，从而生成与<code>dfSumBig</code>不同的sql。这时，可以停止优化器的配置：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"> spark.conf.set(</span><br><span class="line">	“spark.sql.optimizer.excludeRules”, </span><br><span class="line">   “org.apache.spark.sql.catalyst.optimizer.<span class="type">PushDownPredicate</span>”</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">val</span> dfSumSmall = df</span><br><span class="line">.groupBy(“profile_id”) </span><br><span class="line">.agg(sum(“interactions”).alias(“metricValue”)) </span><br><span class="line">.filter($”metricValue” &lt; <span class="number">20</span>) </span><br><span class="line">.filter($”profile_id”.isNotNull)</span><br></pre></td></tr></table></figure>
+
+
+
+<p>这种设置适用于：</p>
+<ul>
+<li>单个读取耗时的数据源，这个数据源上的有不同的操作符，然后通过<code>Union</code>或<code>Join</code>来合并。</li>
+</ul>
+<p>相同作用通过缓存(cache)也能做到，但是缓存(cache)：</p>
+<ul>
+<li>缓存对于大的数据集不一样有效，大的数据集不一样能放入缓存层</li>
+<li>把数据放入缓存层，会因此额外的开销</li>
+</ul>
+<h3 id="示例二：数据聚合"><a href="#示例二：数据聚合" class="headerlink" title="示例二：数据聚合"></a>示例二：数据聚合</h3><p>在下面的数据表中，需要得到每个profile最大interaction的记录。</p>
+<table>
+<thead>
+<tr>
+<th>post_id</th>
+<th>profile_id</th>
+<th>date</th>
+<th>interactions</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>1</td>
+<td>2019-01-01</td>
+<td>20</td>
+</tr>
+<tr>
+<td>2</td>
+<td>1</td>
+<td>2019-01-01</td>
+<td>50</td>
+</tr>
+<tr>
+<td>3</td>
+<td>1</td>
+<td>2019-02-01</td>
+<td>50</td>
+</tr>
+<tr>
+<td>4</td>
+<td>2</td>
+<td>2019-01-01</td>
+<td>15</td>
+</tr>
+<tr>
+<td>5</td>
+<td>2</td>
+<td>2019-03-01</td>
+<td>25</td>
+</tr>
+</tbody></table>
+<p>通常有三种方式来实现这个查询：</p>
+<ul>
+<li>使用窗口函数</li>
+<li>使用GroupBy+Join</li>
+<li>使用关联子查询</li>
+</ul>
+<p>使用窗口函数：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> w = <span class="type">Window</span>.partitionBy(“profile_id”)</span><br><span class="line"></span><br><span class="line">posts</span><br><span class="line">.withColumn(“maxCount”, max(“interactions”).over(w)) </span><br><span class="line">.filter($”interactions” === $”maxCount”)</span><br></pre></td></tr></table></figure>
+
+<p>使用GroupBy+join</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"> <span class="keyword">val</span> maxCount = posts</span><br><span class="line">.groupBy(“profile_id”) </span><br><span class="line">.agg(max(“interactions”).alias(“maxCount”))</span><br><span class="line"></span><br><span class="line">posts</span><br><span class="line">.join(maxCount, <span class="type">Seq</span>(“profile_id”)) </span><br><span class="line">.filter($”interactions” === $”maxCount”)</span><br></pre></td></tr></table></figure>
+
+<p>使用关联子查询</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"> posts.createOrReplaceTempView(“postsView”)</span><br><span class="line"><span class="keyword">val</span> query = “““</span><br><span class="line"><span class="type">SELECT</span> *</span><br><span class="line"><span class="type">FROM</span> postsView v1 <span class="type">WHERE</span> interactions = (</span><br><span class="line">select max(interactions) from postsView v2 where v1.profile_id = v2.profile_id )</span><br><span class="line">””” spark.sql(query)</span><br></pre></td></tr></table></figure>
+
+
+
+<p><img src="example_2.jpg" alt="example_2"></p>
+<p>三种方式的比较：</p>
+<p><img src="join_comparasions.jpg" alt="join_comparasions"></p>
+<h3 id="示例三-repartiton"><a href="#示例三-repartiton" class="headerlink" title="示例三: repartiton"></a>示例三: repartiton</h3><p>结合示例二的posts表和下面的profiles表</p>
+<table>
+<thead>
+<tr>
+<th>profile_id</th>
+<th>lang</th>
+<th>about</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>en</td>
+<td>“Some thing”</td>
+</tr>
+<tr>
+<td>2</td>
+<td>en</td>
+<td>“Some other”</td>
+</tr>
+</tbody></table>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">posts</span><br><span class="line">.groupBy(“profile_id”, “date”) </span><br><span class="line">.agg(sum(“interactions”)) </span><br><span class="line">.join(profiles, <span class="type">Seq</span>(“profile_id”))</span><br></pre></td></tr></table></figure>
+
+
+
+<p>SQL语句语句汇总，涉及三个exchange操作符，需要3次数据的shuffle。</p>
+<p><img src="example_3.jpg" alt="example_3"></p>
+<p>可以通过添加<code>repartition</code>来减少一次shuffle</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"> posts</span><br><span class="line">.repartition(“profile_id”) </span><br><span class="line">.groupBy(“profile_id”, “date”) </span><br><span class="line">.agg(sum(“interactions”)) </span><br><span class="line">.join(profiles, <span class="type">Seq</span>(“profile_id”))</span><br></pre></td></tr></table></figure>
+
+
+
+<p><img src="repartition.jpg" alt="repartition.jpg"></p>
+<p>使用<code>repartition</code>可以减少shuffle，当：</p>
+<ul>
+<li>（profile_id, date）的笛卡尔积，与行数相当</li>
+<li>每个profile的每个date只有几个posts</li>
+<li><code>GroupBy</code>没有明显减少数据量</li>
+<li>reduce shuffle与full shuffle相当</li>
+</ul>
+<blockquote>
+<p>我的公众号：lyp分享的地方</p>
+<p>我的知乎专栏: <a href="https://zhuanlan.zhihu.com/c_1275466546035740672" target="_blank" rel="noopener">https://zhuanlan.zhihu.com/c_1275466546035740672</a></p>
+<p>我的博客：<a href="http://www.liangyaopei.com" target="_blank" rel="noopener">www.liangyaopei.com</a></p>
+<p>Github Page: <a href="https://liangyaopei.github.io/">https://liangyaopei.github.io/</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Apache-Spark/" rel="tag"># Apache Spark</a>
+              <a href="/tags/SQL-Optimize/" rel="tag"># SQL Optimize</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/04/17/checker-v2/" rel="prev" title="checker v2 高效灵活的Golang参数校验">
+      <i class="fa fa-chevron-left"></i> checker v2 高效灵活的Golang参数校验
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#SQL查询执行"><span class="nav-number">1.</span> <span class="nav-text">SQL查询执行</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#逻辑计划"><span class="nav-number">1.1.</span> <span class="nav-text">逻辑计划</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#物理计划"><span class="nav-number">1.2.</span> <span class="nav-text">物理计划</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SQL优化技巧"><span class="nav-number">2.</span> <span class="nav-text">SQL优化技巧</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#示例一：复用exchange"><span class="nav-number">2.1.</span> <span class="nav-text">示例一：复用exchange</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#示例二：数据聚合"><span class="nav-number">2.2.</span> <span class="nav-text">示例二：数据聚合</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#示例三-repartiton"><span class="nav-number">2.3.</span> <span class="nav-text">示例三: repartiton</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">32</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">33</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liangyaopei" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yaopei.liang@foxmail.com" title="E-Mail → mailto:yaopei.liang@foxmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://github.com/liangyaopei" title="https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank">Github</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
