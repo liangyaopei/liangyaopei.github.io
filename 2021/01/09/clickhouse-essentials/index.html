@@ -29,7 +29,7 @@
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/merge_tree_family.jpg">
 <meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/mergetree_structure.jpg">
-<meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/merge_process.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/merge_process.png">
 <meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/merge_all.jpg">
 <meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/compressed_data_unit.jpg">
 <meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/compressed_logic.jpg">
@@ -39,7 +39,7 @@
 <meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/read_process.jpg">
 <meta property="og:image" content="https://liangyaopei.github.io/2021/01/09/clickhouse-essentials/query.jpg">
 <meta property="article:published_time" content="2021-01-09T02:54:37.000Z">
-<meta property="article:modified_time" content="2021-01-09T07:03:22.880Z">
+<meta property="article:modified_time" content="2022-01-19T06:49:39.089Z">
 <meta property="article:author" content="Patrick(liangyaopei)">
 <meta property="article:tag" content="ClickHouse">
 <meta name="twitter:card" content="summary">
@@ -196,10 +196,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-01-09 10:54:37 / 修改时间：15:03:22" itemprop="dateCreated datePublished" datetime="2021-01-09T10:54:37+08:00">2021-01-09</time>
+              <time title="创建时间：2021-01-09 10:54:37" itemprop="dateCreated datePublished" datetime="2021-01-09T10:54:37+08:00">2021-01-09</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-01-19 14:49:39" itemprop="dateModified" datetime="2022-01-19T14:49:39+08:00">2022-01-19</time>
+              </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="far fa-folder"></i>
@@ -248,7 +254,7 @@
 </ul>
 <h2 id="ClickHouse的MergeTree引擎"><a href="#ClickHouse的MergeTree引擎" class="headerlink" title="ClickHouse的MergeTree引擎"></a>ClickHouse的MergeTree引擎</h2><p><code>MergeTree</code>是ClickHouse最常用的表引擎，支持主键索引，数据分区，数据副本和数据采样等功能。</p>
 <p><img src="merge_tree_family.jpg" alt="merge_tree_family"></p>
-<h3 id="MergeTree的创建方式和存储方式"><a href="#MergeTree的创建方式和存储方式" class="headerlink" title="MergeTree的创建方式和存储方式"></a>MergeTree的创建方式和存储方式</h3><p>MergeTree写入一批数据时，数据会以数据片段的的形式写入磁盘，并且数据片段不可修改。为了逼迫数据片段过多，ClickHouse会通过后台线程，定期合并这些数据片段。</p>
+<h3 id="MergeTree的创建方式和存储方式"><a href="#MergeTree的创建方式和存储方式" class="headerlink" title="MergeTree的创建方式和存储方式"></a>MergeTree的创建方式和存储方式</h3><p>MergeTree写入一批数据时，数据会以数据片段的的形式写入磁盘，并且数据片段不可修改。为了避免数据片段过多，ClickHouse会通过后台线程，定期合并这些数据片段。</p>
 <h4 id="MergeTree的创建方式"><a href="#MergeTree的创建方式" class="headerlink" title="MergeTree的创建方式"></a>MergeTree的创建方式</h4><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> [<span class="keyword">IF</span> <span class="keyword">NOT</span> <span class="keyword">EXISTS</span>] [db_name].table_name (</span><br><span class="line">  </span><br><span class="line">)<span class="keyword">ENGINE</span> = MergeTree()</span><br><span class="line">[<span class="keyword">PARTITION</span> <span class="keyword">BY</span> expr]</span><br><span class="line">[<span class="keyword">ORDER</span> <span class="keyword">BY</span> expr]</span><br><span class="line">[PRIMARY <span class="keyword">KEY</span> expr]</span><br><span class="line">[<span class="keyword">SAMPLE</span> <span class="keyword">BY</span> expr]</span><br><span class="line">[<span class="keyword">SETTINGS</span> <span class="keyword">name</span>=<span class="keyword">value</span>,...]</span><br></pre></td></tr></table></figure>
 <p>(1)<code>PARTITION BY</code>[选填]: 分区键，用于指定表数据以何种形式进行分区。分区键支持：单个列字段，元组的形式使用多个列字段，列表达式。不声明的话，ClickHouse会生成一个all的分区。</p>
 <p>(2)<code>ORDER BY</code>[必填]: 排序键，指定在一个数据片段内，数据以何种标准排序。默认情况下主键和排序键相同。</p>
@@ -276,7 +282,7 @@
 <figure class="highlight ebnf"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">PartitionID_MinBlockNum_MaxBlockNum_Level</span></span><br></pre></td></tr></table></figure>
 
 <p>目录合并过程</p>
-<p><img src="merge_process.jpg" alt="merge_process"></p>
+<p><img src="merge_process.png" alt="merge_process"></p>
 <p>完整的目录合并过程<br><img src="merge_all.jpg" alt="merge_all"></p>
 <h4 id="一级索引"><a href="#一级索引" class="headerlink" title="一级索引"></a>一级索引</h4><p>MergeTree的主键使用PRIMARY KEY定义，按照index_granularity间隔，为数据表生成一级索引并保存至primary.idx文件，索引数据按照PRIMARY KEY排序。相比使用PRIMARY KEY，更常见的方式是通过ORDER BY指定主键。</p>
 <h4 id="数据存储"><a href="#数据存储" class="headerlink" title="数据存储"></a>数据存储</h4><p>MergeTree中，数据是按列存储的，每个列字段有对应的.bin文件。按列独立存储可以更好地压缩数据，最小化数据扫描的范围。</p>
@@ -311,7 +317,7 @@
 <p>没有设置了ver版本号，保留同一组重复数据中的最后一行</p>
 <p>设置了ver版本号，保留同一组重复数据中的ver取值最大的一行</p>
 </blockquote>
-<h3 id="AggregatingMergeTree"><a href="#AggregatingMergeTree" class="headerlink" title="AggregatingMergeTree"></a>AggregatingMergeTree</h3><p><code>AggregatingMergeTree</code> 的<code>order by</code>，``primary key<code>同</code>SummingMergeTree`。</p>
+<h3 id="AggregatingMergeTree"><a href="#AggregatingMergeTree" class="headerlink" title="AggregatingMergeTree"></a>AggregatingMergeTree</h3><p><code>AggregatingMergeTree</code> 的<code>order by</code>，<code>primary key</code>同<code>SummingMergeTree</code>。</p>
 <p>看下面例子</p>
 <figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> agg_table(</span><br><span class="line">	<span class="keyword">id</span> <span class="keyword">String</span>,</span><br><span class="line">  city <span class="keyword">String</span>,</span><br><span class="line">  code AggregateFunction(uniq,<span class="keyword">String</span>),</span><br><span class="line">  <span class="keyword">value</span> AggregateFunction(<span class="keyword">sum</span>,UInt32),</span><br><span class="line">  create_time DateTime,</span><br><span class="line">)<span class="keyword">ENGINE</span> = AggregatingMergeTree</span><br><span class="line">PARTITIION <span class="keyword">BY</span> toYYYYMM(create_time)</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> (<span class="keyword">id</span>,city)</span><br><span class="line">PRIMARY <span class="keyword">KEY</span> <span class="keyword">id</span></span><br></pre></td></tr></table></figure>
 
@@ -330,7 +336,7 @@
 <figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> collpase_table(</span><br><span class="line">	<span class="keyword">id</span> <span class="keyword">String</span>,</span><br><span class="line">  code Int32,</span><br><span class="line">  create_time DateTime,</span><br><span class="line">  <span class="keyword">sign</span> <span class="built_in">Int8</span></span><br><span class="line">)<span class="keyword">ENGINE</span>=CollapsingMergeTree(<span class="keyword">sign</span>)</span><br><span class="line"><span class="keyword">PARTITION</span> <span class="keyword">BY</span> toYYMM(create_time)</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">id</span></span><br></pre></td></tr></table></figure>
 
 <p><code>CollapsingMergeTree</code> 同样以order by判断唯一性的依据。</p>
-<p>（1）折叠数据不是实时触发的，和其他MergeTree变种引擎一样，这项特性在分区合并之后才会体现。分区合并之前，用户看到的是旧的数据。有2中方法解决：</p>
+<p>（1）折叠数据不是实时触发的，和其他MergeTree变种引擎一样，这项特性在分区合并之后才会体现。分区合并之前，用户看到的是旧的数据。有2种方法解决：</p>
 <ul>
 <li><p>查询之前使用<code>optimize TABLE table_name FINAL</code> 强制分区合并，但是方法效率很低</p>
 </li>
