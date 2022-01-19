@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 4.2.1">
+<meta name="generator" content="Hexo 5.2.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
@@ -29,7 +29,7 @@
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2020-07-01T14:19:33.000Z">
 <meta property="article:modified_time" content="2020-10-02T06:51:03.866Z">
-<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:author" content="LiangYaopei">
 <meta property="article:tag" content="MySQL">
 <meta name="twitter:card" content="summary">
 
@@ -166,7 +166,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -212,7 +212,7 @@
 <li><code>BIGINT AUTO_INCREMENT</code></li>
 <li><code>INT UNSIGNED AUTO_INCREMENT</code><br>一般来说，<code>BIGINT</code>和<code>INT</code>都可以作为表的主键，<code>BIGINT</code>是8个字节，<code>INT</code>是4个字节。在这里，建议使用<code>INT</code>,因为能够支撑43亿的数据量，对于很多应用，这是个足够的数据。</li>
 </ol>
-<h3 id="表示时间"><a href="#表示时间" class="headerlink" title="表示时间"></a>表示时间</h3><p><code>INT UNSIGNED</code>的最大值是<code>4294967295 (0xffffffff)</code>.<a href="https://www.epochconverter.com/" target="_blank" rel="noopener">转化</a>成时间是<code>2106年2月7日星期日下午2点28分 GMT+08:00</code>.<br><code>INT</code>的最大值是<code>2147483647</code>, <a href="https://www.epochconverter.com/" target="_blank" rel="noopener">转化</a>成时间是<code>2038年1月19日星期二上午11点14分 GMT+08:00</code>.<br><code>BIGINT</code>的最大值是<code>9223372036854775807</code>, <a href="https://www.epochconverter.com/" target="_blank" rel="noopener">转化</a>成时间是<code>2262年4月12日星期六早上7点47分 GMT+08:00</code>.<br><code>BIGINT UNSIGNED</code>的最大值是<code>18446744073709551615</code>, <a href="https://www.epochconverter.com/" target="_blank" rel="noopener">转化</a>成时间是<code>2554年7月22日星期一早上7点34分 GMT+08:00</code>.<br>因此，根据数据的范围，来选择对应的类型。</p>
+<h3 id="表示时间"><a href="#表示时间" class="headerlink" title="表示时间"></a>表示时间</h3><p><code>INT UNSIGNED</code>的最大值是<code>4294967295 (0xffffffff)</code>.<a target="_blank" rel="noopener" href="https://www.epochconverter.com/">转化</a>成时间是<code>2106年2月7日星期日下午2点28分 GMT+08:00</code>.<br><code>INT</code>的最大值是<code>2147483647</code>, <a target="_blank" rel="noopener" href="https://www.epochconverter.com/">转化</a>成时间是<code>2038年1月19日星期二上午11点14分 GMT+08:00</code>.<br><code>BIGINT</code>的最大值是<code>9223372036854775807</code>, <a target="_blank" rel="noopener" href="https://www.epochconverter.com/">转化</a>成时间是<code>2262年4月12日星期六早上7点47分 GMT+08:00</code>.<br><code>BIGINT UNSIGNED</code>的最大值是<code>18446744073709551615</code>, <a target="_blank" rel="noopener" href="https://www.epochconverter.com/">转化</a>成时间是<code>2554年7月22日星期一早上7点34分 GMT+08:00</code>.<br>因此，根据数据的范围，来选择对应的类型。</p>
 <h2 id="DATETIME-vs-TIMESTAMP"><a href="#DATETIME-vs-TIMESTAMP" class="headerlink" title="DATETIME vs. TIMESTAMP"></a><code>DATETIME</code> vs. <code>TIMESTAMP</code></h2><p><code>DATETIME</code>的大小是8字节，<code>TIMESTAMP</code>的大小是4字节。</p>
 <ol>
 <li><code>TIMESTAMP</code>表示的是1970年1月1号的时间，它的范围是从’1970-01-01 00:00:01’ UTC 到 ‘2038-01-19 03:14:07’ UTC.</li>
@@ -233,7 +233,7 @@
   <div id="qr" style="display: none;">
       
       <div style="display: inline-block;">
-        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <img src="/images/pay/wechatpay.jpg" alt="LiangYaopei 微信支付">
         <p>微信支付</p>
       </div>
 
@@ -314,13 +314,13 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#BIGINT-vs-INT"><span class="nav-number">1.</span> <span class="nav-text">BIGINT vs. INT</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#作为主键，使用INT"><span class="nav-number">1.1.</span> <span class="nav-text">作为主键，使用INT</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#表示时间"><span class="nav-number">1.2.</span> <span class="nav-text">表示时间</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DATETIME-vs-TIMESTAMP"><span class="nav-number">2.</span> <span class="nav-text">DATETIME vs. TIMESTAMP</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#BIGINT-vs-INT"><span class="nav-number">1.</span> <span class="nav-text">BIGINT vs. INT</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%9C%E4%B8%BA%E4%B8%BB%E9%94%AE%EF%BC%8C%E4%BD%BF%E7%94%A8INT"><span class="nav-number">1.1.</span> <span class="nav-text">作为主键，使用INT</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A1%A8%E7%A4%BA%E6%97%B6%E9%97%B4"><span class="nav-number">1.2.</span> <span class="nav-text">表示时间</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DATETIME-vs-TIMESTAMP"><span class="nav-number">2.</span> <span class="nav-text">DATETIME vs. TIMESTAMP</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
-  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <p class="site-author-name" itemprop="name">LiangYaopei</p>
   <div class="site-description" itemprop="description"></div>
 </div>
 <div class="site-state-wrap motion-element">
@@ -390,7 +390,7 @@
   <span class="with-love">
     <i class="fa fa-heart"></i>
   </span>
-  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+  <span class="author" itemprop="copyrightHolder">LiangYaopei</span>
 </div>
 
         

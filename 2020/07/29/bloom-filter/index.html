@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 4.2.1">
+<meta name="generator" content="Hexo 5.2.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
@@ -34,7 +34,7 @@
 <meta property="og:image" content="https://liangyaopei.github.io/2020/07/29/bloom-filter/bloom_filter_cat.png">
 <meta property="article:published_time" content="2020-07-29T12:09:18.000Z">
 <meta property="article:modified_time" content="2020-10-02T06:51:03.866Z">
-<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:author" content="LiangYaopei">
 <meta property="article:tag" content="Golang">
 <meta property="article:tag" content="bloom filter">
 <meta name="twitter:card" content="summary">
@@ -173,7 +173,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -233,24 +233,24 @@
 <li><code>n</code>表示插入的元素个数</li>
 </ol>
 <p>布隆过滤器中，一个元素插入后，某个bit为0的概率是</p>
-<figure class="highlight angelscript"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(<span class="number">1</span>−<span class="number">1</span>/m)^k</span><br></pre></td></tr></table></figure>
+<figure class="highlight clojure"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(<span class="number">1</span>−<span class="number">1</span>/m)<span class="comment">^k</span></span><br></pre></td></tr></table></figure>
 <p>n元素插入后，某个bit为0的概率是</p>
-<figure class="highlight angelscript"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(<span class="number">1</span>−<span class="number">1</span>/m)^(nk)</span><br></pre></td></tr></table></figure>
+<figure class="highlight gcode"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">(1−1/m)</span>^<span class="comment">(nk)</span></span><br></pre></td></tr></table></figure>
 <p>false positive的概率是</p>
 <figure class="highlight clojure"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(<span class="number">1</span>−(<span class="number">1</span>−<span class="number">1</span>/m)<span class="comment">^nk</span>)<span class="comment">^k</span></span><br></pre></td></tr></table></figure>
 <p>因为需要的是<code>k</code>个不同的bit被设置成1，概率是大约是</p>
 <figure class="highlight clojure"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(<span class="number">1</span>−e^(−kn/m))<span class="comment">^k</span></span><br></pre></td></tr></table></figure>
 <p>这个就是false positive的概率</p>
-<h2 id="Golang代码实现"><a href="#Golang代码实现" class="headerlink" title="Golang代码实现"></a>Golang代码实现</h2><p>代码实现在<a href="https://github.com/liangyaopei/bloom" target="_blank" rel="noopener">我的github仓库</a>。<br>这个Golang实现，支持并发操作，批量加入<code>byte</code>数组，字符串，数字等。</p>
+<h2 id="Golang代码实现"><a href="#Golang代码实现" class="headerlink" title="Golang代码实现"></a>Golang代码实现</h2><p>代码实现在<a target="_blank" rel="noopener" href="https://github.com/liangyaopei/bloom">我的github仓库</a>。<br>这个Golang实现，支持并发操作，批量加入<code>byte</code>数组，字符串，数字等。</p>
 <h3 id="bit数组的大小选择"><a href="#bit数组的大小选择" class="headerlink" title="bit数组的大小选择"></a>bit数组的大小选择</h3><p>代码中，bit数组表示成<code>[]byte</code>数组。由于后续在<code>[]byte</code>定位hash需要取余操作，<code>%</code>操作是一个比较慢的操作，如果数组的长度是2的n次方，<code>%</code>可以被优化成<code>&amp; (2^n-1)</code>。因此，<code>New()</code>函数初始化的时候，会将<code>[]byte</code>数组的长度拉长到<code>2^n</code>，加快计算。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Filter <span class="keyword">struct</span> &#123;</span><br><span class="line">	lock       *sync.RWMutex</span><br><span class="line">	concurrent <span class="keyword">bool</span></span><br><span class="line"></span><br><span class="line">	m     <span class="keyword">uint64</span> <span class="comment">// bit array of m bits, m will be ceiling to power of 2</span></span><br><span class="line">	n     <span class="keyword">uint64</span> <span class="comment">// number of inserted elements</span></span><br><span class="line">	log2m <span class="keyword">uint64</span> <span class="comment">// log_2 of m</span></span><br><span class="line">	k     <span class="keyword">uint64</span> <span class="comment">// the number of hash function</span></span><br><span class="line">	keys  []<span class="keyword">byte</span> <span class="comment">// byte array to store hash value</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">New</span><span class="params">(size <span class="keyword">uint64</span>, k <span class="keyword">uint64</span>, race <span class="keyword">bool</span>)</span> *<span class="title">Filter</span></span> &#123;</span><br><span class="line">	log2 := <span class="keyword">uint64</span>(math.Ceil(math.Log2(<span class="keyword">float64</span>(size))))</span><br><span class="line">	filter := &amp;Filter&#123;</span><br><span class="line">		m:          <span class="number">1</span> &lt;&lt; log2,</span><br><span class="line">		log2m:      log2,</span><br><span class="line">		k:          k,</span><br><span class="line">		keys:       <span class="built_in">make</span>([]<span class="keyword">byte</span>, <span class="number">1</span>&lt;&lt;log2),</span><br><span class="line">		concurrent: race,</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> filter.concurrent &#123;</span><br><span class="line">		filter.lock = &amp;sync.RWMutex&#123;&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> filter</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// location returns the bit position in byte array</span></span><br><span class="line"><span class="comment">// &amp; (f.m - 1) is the quick way for mod operation</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(f *Filter)</span> <span class="title">location</span><span class="params">(h <span class="keyword">uint64</span>)</span> <span class="params">(<span class="keyword">uint64</span>, <span class="keyword">uint64</span>)</span></span> &#123;</span><br><span class="line">	slot := (h / bitPerByte) &amp; (f.m - <span class="number">1</span>)</span><br><span class="line">	mod := h &amp; mod7</span><br><span class="line">	<span class="keyword">return</span> slot, mod</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 
-<h3 id="hash函数的选择"><a href="#hash函数的选择" class="headerlink" title="hash函数的选择"></a>hash函数的选择</h3><p>因为需要快速的操作，因此不选择<code>md5</code>,<code>sha</code>等耗时比较久的hash操作。<a href="https://softwareengineering.stackexchange.com/questions/49550/which-hashing-algorithm-is-best-for-uniqueness-and-speed" target="_blank" rel="noopener">经过比较之后</a>，我选择使用<code>murmur3</code>的hash算法，来对key进行hash。</p>
+<h3 id="hash函数的选择"><a href="#hash函数的选择" class="headerlink" title="hash函数的选择"></a>hash函数的选择</h3><p>因为需要快速的操作，因此不选择<code>md5</code>,<code>sha</code>等耗时比较久的hash操作。<a target="_blank" rel="noopener" href="https://softwareengineering.stackexchange.com/questions/49550/which-hashing-algorithm-is-best-for-uniqueness-and-speed">经过比较之后</a>，我选择使用<code>murmur3</code>的hash算法，来对key进行hash。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// baseHash returns the murmur3 128-bit hash</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">baseHash</span><span class="params">(data []<span class="keyword">byte</span>)</span> []<span class="title">uint64</span></span> &#123;</span><br><span class="line">	a1 := []<span class="keyword">byte</span>&#123;<span class="number">1</span>&#125; <span class="comment">// to grab another bit of data</span></span><br><span class="line">	hasher := murmur3.New128()</span><br><span class="line">	hasher.Write(data) <span class="comment">// #nosec</span></span><br><span class="line">	v1, v2 := hasher.Sum128()</span><br><span class="line">	hasher.Write(a1) <span class="comment">// #nosec</span></span><br><span class="line">	v3, v4 := hasher.Sum128()</span><br><span class="line">	<span class="keyword">return</span> []<span class="keyword">uint64</span>&#123;</span><br><span class="line">		v1, v2, v3, v4,</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>输入一段元素的字节数组，将其hash值返回，计算出这个元素的位置。</p>
 <blockquote>
-<p>更多内容，访问我的<a href="https://www.liangyaopei.com/" target="_blank" rel="noopener">博客</a></p>
+<p>更多内容，访问我的<a target="_blank" rel="noopener" href="https://www.liangyaopei.com/">博客</a></p>
 </blockquote>
 
     </div>
@@ -266,7 +266,7 @@
   <div id="qr" style="display: none;">
       
       <div style="display: inline-block;">
-        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <img src="/images/pay/wechatpay.jpg" alt="LiangYaopei 微信支付">
         <p>微信支付</p>
       </div>
 
@@ -351,13 +351,13 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#布隆过滤器简介"><span class="nav-number">1.</span> <span class="nav-text">布隆过滤器简介</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#布隆过滤器原理"><span class="nav-number">2.</span> <span class="nav-text">布隆过滤器原理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#布隆过滤器加入元素"><span class="nav-number">2.1.</span> <span class="nav-text">布隆过滤器加入元素</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#布隆过滤器查询元素"><span class="nav-number">2.2.</span> <span class="nav-text">布隆过滤器查询元素</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#布隆过滤器的false-positive"><span class="nav-number">2.3.</span> <span class="nav-text">布隆过滤器的false positive</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#布隆过滤器的false-positive计算"><span class="nav-number">2.4.</span> <span class="nav-text">布隆过滤器的false positive计算</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Golang代码实现"><span class="nav-number">3.</span> <span class="nav-text">Golang代码实现</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#bit数组的大小选择"><span class="nav-number">3.1.</span> <span class="nav-text">bit数组的大小选择</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#hash函数的选择"><span class="nav-number">3.2.</span> <span class="nav-text">hash函数的选择</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B8%83%E9%9A%86%E8%BF%87%E6%BB%A4%E5%99%A8%E7%AE%80%E4%BB%8B"><span class="nav-number">1.</span> <span class="nav-text">布隆过滤器简介</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B8%83%E9%9A%86%E8%BF%87%E6%BB%A4%E5%99%A8%E5%8E%9F%E7%90%86"><span class="nav-number">2.</span> <span class="nav-text">布隆过滤器原理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B8%83%E9%9A%86%E8%BF%87%E6%BB%A4%E5%99%A8%E5%8A%A0%E5%85%A5%E5%85%83%E7%B4%A0"><span class="nav-number">2.1.</span> <span class="nav-text">布隆过滤器加入元素</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B8%83%E9%9A%86%E8%BF%87%E6%BB%A4%E5%99%A8%E6%9F%A5%E8%AF%A2%E5%85%83%E7%B4%A0"><span class="nav-number">2.2.</span> <span class="nav-text">布隆过滤器查询元素</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B8%83%E9%9A%86%E8%BF%87%E6%BB%A4%E5%99%A8%E7%9A%84false-positive"><span class="nav-number">2.3.</span> <span class="nav-text">布隆过滤器的false positive</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B8%83%E9%9A%86%E8%BF%87%E6%BB%A4%E5%99%A8%E7%9A%84false-positive%E8%AE%A1%E7%AE%97"><span class="nav-number">2.4.</span> <span class="nav-text">布隆过滤器的false positive计算</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Golang%E4%BB%A3%E7%A0%81%E5%AE%9E%E7%8E%B0"><span class="nav-number">3.</span> <span class="nav-text">Golang代码实现</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#bit%E6%95%B0%E7%BB%84%E7%9A%84%E5%A4%A7%E5%B0%8F%E9%80%89%E6%8B%A9"><span class="nav-number">3.1.</span> <span class="nav-text">bit数组的大小选择</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#hash%E5%87%BD%E6%95%B0%E7%9A%84%E9%80%89%E6%8B%A9"><span class="nav-number">3.2.</span> <span class="nav-text">hash函数的选择</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
-  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <p class="site-author-name" itemprop="name">LiangYaopei</p>
   <div class="site-description" itemprop="description"></div>
 </div>
 <div class="site-state-wrap motion-element">
@@ -427,7 +427,7 @@
   <span class="with-love">
     <i class="fa fa-heart"></i>
   </span>
-  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+  <span class="author" itemprop="copyrightHolder">LiangYaopei</span>
 </div>
 
         

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 4.2.1">
+<meta name="generator" content="Hexo 5.2.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
@@ -25,7 +25,7 @@
 <meta property="og:url" content="https://liangyaopei.github.io/page/3/index.html">
 <meta property="og:site_name" content="Random walk to my blog">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:author" content="LiangYaopei">
 <meta name="twitter:card" content="summary">
 
 <link rel="canonical" href="https://liangyaopei.github.io/page/3/">
@@ -160,7 +160,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -211,7 +211,7 @@
 
       
           <blockquote>
-<p>本文代码在<a href="https://github.com/liangyaopei/hyper" target="_blank" rel="noopener">我的Github仓库</a>,欢迎给star。<br>代码实现参考了<a href="https://en.wikipedia.org/wiki/HyperLogLog" target="_blank" rel="noopener">hyperloglog的维基百科</a></p>
+<p>本文代码在<a target="_blank" rel="noopener" href="https://github.com/liangyaopei/hyper">我的Github仓库</a>,欢迎给star。<br>代码实现参考了<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/HyperLogLog">hyperloglog的维基百科</a></p>
 </blockquote>
 <h2 id="去重计数-Count-distinct"><a href="#去重计数-Count-distinct" class="headerlink" title="去重计数(Count distinct)"></a>去重计数(Count distinct)</h2><p>日常开发中，有时候需要对大量的数据集进行去重计数的工作，这是非常耗费计算资源的。比如说，需要计算某个视频/文章的观看用户数，由于同个用户可能在一天之内多次观看，使用要进行去重操作。如果使用一个hash集合保存用户的id，不仅耗费大量存储空间，也耗费计算的时间。</p>
 <p><code>HyperLogLog</code>适用于数量很大，能容忍少量错误率的去重计数操作，它使用的存储空间非常小，几十字节就能对百万以上的数据进行去重计数。</p>
@@ -245,7 +245,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -317,7 +317,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -367,7 +367,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <h2 id="分布式哈希（Distributed-Hashing）"><a href="#分布式哈希（Distributed-Hashing）" class="headerlink" title="分布式哈希（Distributed Hashing）"></a>分布式哈希（Distributed Hashing）</h2><p>分布式环境中，需要进行<a href="https://github.com/papers-we-love/papers-we-love/blob/master/distributed_systems/consistent-hashing-and-random-trees.pdf" target="_blank" rel="noopener">分布式哈希</a>来进行负载均衡，减少忙碌服务器的负载。例如，对一个键(key)做了哈希后，需要确定它保存在哪个服务器上面。一致性散列(consistent hash)函数的特点是，当函数范围(例如，服务器的数量)变化，它变化的最少。<br>一个对一致性哈希的典型应用是<a href="https://en.wikipedia.org/wiki/Memcached" target="_blank" rel="noopener">Memcached</a>.</p>
+          <h2 id="分布式哈希（Distributed-Hashing）"><a href="#分布式哈希（Distributed-Hashing）" class="headerlink" title="分布式哈希（Distributed Hashing）"></a>分布式哈希（Distributed Hashing）</h2><p>分布式环境中，需要进行<a target="_blank" rel="noopener" href="https://github.com/papers-we-love/papers-we-love/blob/master/distributed_systems/consistent-hashing-and-random-trees.pdf">分布式哈希</a>来进行负载均衡，减少忙碌服务器的负载。例如，对一个键(key)做了哈希后，需要确定它保存在哪个服务器上面。一致性散列(consistent hash)函数的特点是，当函数范围(例如，服务器的数量)变化，它变化的最少。<br>一个对一致性哈希的典型应用是<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Memcached">Memcached</a>.</p>
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/2020/07/25/consistent-hash/#more" rel="contents">
@@ -398,7 +398,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -448,7 +448,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>在Golang中，如何将一个结构体转成map？<br>本文介绍两种方法。第一种是是使用<code>json</code>包解析解码编码。第二种是使用反射，使用反射的效率比较高，<a href="https://github.com/liangyaopei/struct_to_map" target="_blank" rel="noopener">代码在这里</a>。</p>
+          <p>在Golang中，如何将一个结构体转成map？<br>本文介绍两种方法。第一种是是使用<code>json</code>包解析解码编码。第二种是使用反射，使用反射的效率比较高，<a target="_blank" rel="noopener" href="https://github.com/liangyaopei/struct_to_map">代码在这里</a>。</p>
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/2020/07/22/golang-struct-to-map/#more" rel="contents">
@@ -479,7 +479,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -532,12 +532,12 @@
           <blockquote>
 <p>本文基于Golang 1.14</p>
 </blockquote>
-<h2 id="用法以及注意事项"><a href="#用法以及注意事项" class="headerlink" title="用法以及注意事项"></a>用法以及注意事项</h2><p><a href="https://blog.golang.org/maps" target="_blank" rel="noopener">Go blog</a>中介绍了<code>map</code>的基本用法。在Go blog之外，这里介绍几个值得注意的点。</p>
+<h2 id="用法以及注意事项"><a href="#用法以及注意事项" class="headerlink" title="用法以及注意事项"></a>用法以及注意事项</h2><p><a target="_blank" rel="noopener" href="https://blog.golang.org/maps">Go blog</a>中介绍了<code>map</code>的基本用法。在Go blog之外，这里介绍几个值得注意的点。</p>
 <h3 id="map作为集合-set"><a href="#map作为集合-set" class="headerlink" title="map作为集合(set)"></a>map作为集合(set)</h3><p>在<code>Golang</code>中，没有集合的类型。所以一般是把<code>map</code>当做集合来用。<br>看下面例子</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="comment">// 预分配内存</span></span><br><span class="line">    set := <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">int</span>]<span class="keyword">bool</span>,<span class="number">10</span>)</span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">10</span>; i++&#123;</span><br><span class="line">        set[i] = <span class="literal">true</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>其实对例子进行优化，不使用<code>bool</code>类型，来节省空间。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="comment">// 预分配内存</span></span><br><span class="line">    set := <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">int</span>]<span class="keyword">struct</span>&#123;&#125;,<span class="number">10</span>)</span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">10</span>; i++&#123;</span><br><span class="line">        set[i] = <span class="keyword">struct</span>&#123;&#125;&#123;&#125;</span><br><span class="line">    &#125;</span><br><span class="line">    _,ok := set(<span class="number">1</span>)</span><br><span class="line">    <span class="comment">// 存在</span></span><br><span class="line">    <span class="keyword">if</span> ok &#123;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>使用空的结构体<code>struct{}</code>，会比使用<code>byte</code>节省空间。经过编译器的优化，<code>struct{}</code>指向<code>runtime.zerobase</code>，不占用空间。</p>
+<p>使用空的结构体<code>struct&#123;&#125;</code>，会比使用<code>byte</code>节省空间。经过编译器的优化，<code>struct&#123;&#125;</code>指向<code>runtime.zerobase</code>，不占用空间。</p>
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/2020/07/13/golang-map/#more" rel="contents">
@@ -568,7 +568,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -618,7 +618,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p><code>defer</code>语句是在函数返回之前，执行一段代码，正如在<a href="https://golang.org/ref/spec#Defer_statements" target="_blank" rel="noopener">Golang 规范</a>描述的：</p>
+          <p><code>defer</code>语句是在函数返回之前，执行一段代码，正如在<a target="_blank" rel="noopener" href="https://golang.org/ref/spec#Defer_statements">Golang 规范</a>描述的：</p>
 <blockquote>
 <p>Instead, deferred functions are invoked immediately before the surrounding function returns, in the reverse order they were deferred.（defer函数在它被返回之前进行调用，以defer声明的逆序调用）</p>
 </blockquote>
@@ -652,7 +652,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -693,7 +693,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <h2 id="基于Session的认证"><a href="#基于Session的认证" class="headerlink" title="基于Session的认证"></a>基于Session的认证</h2><p><a href="https://stackoverflow.com/questions/13200152/why-is-it-said-that-http-is-a-stateless-protocol" target="_blank" rel="noopener">HTTP协议</a>是无状态(stateless)的，这意味着，如果在一个请求中，用户传递了用户名和密码，通过了我们的认证。在用户的下一个请求中，我们仍然不能识别这个认证通过的用户，还需要认证一遍，因为两次HTTP请求是没有关联。<br>为了解决这个问题，session，也就是基于cookie的认证产生了。</p>
+          <h2 id="基于Session的认证"><a href="#基于Session的认证" class="headerlink" title="基于Session的认证"></a>基于Session的认证</h2><p><a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/13200152/why-is-it-said-that-http-is-a-stateless-protocol">HTTP协议</a>是无状态(stateless)的，这意味着，如果在一个请求中，用户传递了用户名和密码，通过了我们的认证。在用户的下一个请求中，我们仍然不能识别这个认证通过的用户，还需要认证一遍，因为两次HTTP请求是没有关联。<br>为了解决这个问题，session，也就是基于cookie的认证产生了。</p>
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/2020/07/11/ways-of-authentication/#more" rel="contents">
@@ -724,7 +724,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -807,7 +807,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -850,7 +850,7 @@
       
           <p>开发登录功能的时候，需要保存用户的密码。用户的密码一般不是明文(plain text)，而是经过散列(hash)或者加密(encrypt)保存的。本文介绍几个常用的保存密码的算法。</p>
 <p>考虑以下的<code>User</code>表。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> <span class="string">`user`</span>(</span><br><span class="line">    <span class="string">`id`</span> <span class="built_in">INT</span> <span class="keyword">UNSIGNED</span> <span class="keyword">NOT</span> <span class="literal">NULL</span> AUTO_INCREMENT <span class="keyword">COMMENT</span> <span class="string">'主键'</span>,</span><br><span class="line">    <span class="string">`account`</span> <span class="built_in">VARCHAR</span>(<span class="number">128</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">''</span> <span class="keyword">COMMENT</span> <span class="string">'账号'</span>,</span><br><span class="line">    <span class="string">`password_hash`</span> <span class="built_in">VARCHAR</span>(<span class="number">1024</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">''</span> <span class="keyword">COMMENT</span> <span class="string">'密码散列值'</span>,</span><br><span class="line">    <span class="string">`salt`</span> <span class="built_in">VARCHAR</span>(<span class="number">128</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">''</span> <span class="keyword">COMMENT</span> <span class="string">'盐'</span>,</span><br><span class="line">    PRIMARY <span class="keyword">KEY</span>(<span class="string">`id`</span>),</span><br><span class="line">)<span class="keyword">ENGINE</span>=<span class="keyword">InnoDB</span> AUTO_INCREMENT=<span class="number">1</span> <span class="keyword">DEFAULT</span> <span class="keyword">CHARSET</span>=utf8mb4 <span class="keyword">COMMENT</span>=<span class="string">'用户账号表'</span>;</span><br></pre></td></tr></table></figure>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> `<span class="keyword">user</span>`(</span><br><span class="line">    `id` <span class="type">INT</span> UNSIGNED <span class="keyword">NOT</span> <span class="keyword">NULL</span> AUTO_INCREMENT COMMENT <span class="string">&#x27;主键&#x27;</span>,</span><br><span class="line">    `account` <span class="type">VARCHAR</span>(<span class="number">128</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">&#x27;&#x27;</span> COMMENT <span class="string">&#x27;账号&#x27;</span>,</span><br><span class="line">    `password_hash` <span class="type">VARCHAR</span>(<span class="number">1024</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">&#x27;&#x27;</span> COMMENT <span class="string">&#x27;密码散列值&#x27;</span>,</span><br><span class="line">    `salt` <span class="type">VARCHAR</span>(<span class="number">128</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">&#x27;&#x27;</span> COMMENT <span class="string">&#x27;盐&#x27;</span>,</span><br><span class="line">    <span class="keyword">PRIMARY</span> KEY(`id`),</span><br><span class="line">)ENGINE<span class="operator">=</span>InnoDB AUTO_INCREMENT<span class="operator">=</span><span class="number">1</span> <span class="keyword">DEFAULT</span> CHARSET<span class="operator">=</span>utf8mb4 COMMENT<span class="operator">=</span><span class="string">&#x27;用户账号表&#x27;</span>;</span><br></pre></td></tr></table></figure>
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/2020/07/10/password-storage/#more" rel="contents">
@@ -881,7 +881,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -922,9 +922,9 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>在Golang的Web编程中，有时候我们创建了一个SQL的表，需要编写对应的结构体的代码。这是一项繁琐无聊的工作。本文介绍一种自动将创建表格的SQL语句转换成Golang的ORM结构体的代码，从而提高编程效率。代码来自于<a href="https://github.com/liangyaopei/sql_to_go" target="_blank" rel="noopener">我的Github</a>。</p>
+          <p>在Golang的Web编程中，有时候我们创建了一个SQL的表，需要编写对应的结构体的代码。这是一项繁琐无聊的工作。本文介绍一种自动将创建表格的SQL语句转换成Golang的ORM结构体的代码，从而提高编程效率。代码来自于<a target="_blank" rel="noopener" href="https://github.com/liangyaopei/sql_to_go">我的Github</a>。</p>
 <h2 id="例子"><a href="#例子" class="headerlink" title="例子"></a>例子</h2><p>例子：下面是一个创建<code>user</code>表的sql语句</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> <span class="string">`USER`</span>(</span><br><span class="line">    <span class="string">`id`</span> <span class="built_in">INT</span> <span class="keyword">UNSIGNED</span> <span class="keyword">NOT</span> <span class="literal">NULL</span> AUTO_INCREMENT <span class="keyword">COMMENT</span> <span class="string">'primary key'</span>,</span><br><span class="line">    <span class="string">`ip_address`</span> <span class="built_in">INT</span>  <span class="keyword">NOT</span> <span class="literal">NULL</span> <span class="keyword">DEFAULT</span> <span class="number">0</span> <span class="keyword">COMMENT</span> <span class="string">'ip_address'</span>,</span><br><span class="line">    <span class="string">`nickname`</span>    <span class="built_in">VARCHAR</span>(<span class="number">128</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">''</span> <span class="keyword">COMMENT</span> <span class="string">'user note'</span>,</span><br><span class="line">    <span class="string">`description`</span> <span class="built_in">VARCHAR</span>(<span class="number">256</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">''</span> <span class="keyword">COMMENT</span> <span class="string">'user description'</span>,</span><br><span class="line">    <span class="string">`creator_email`</span> <span class="built_in">VARCHAR</span>(<span class="number">64</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">''</span> <span class="keyword">COMMENT</span> <span class="string">'creator email'</span>,</span><br><span class="line">    <span class="string">`created_at`</span> <span class="built_in">TIMESTAMP</span> <span class="keyword">NOT</span> <span class="literal">NULL</span> <span class="keyword">DEFAULT</span> <span class="keyword">CURRENT_TIMESTAMP</span> <span class="keyword">COMMENT</span> <span class="string">'create time'</span>,</span><br><span class="line">    <span class="string">`deleted_at`</span> <span class="built_in">TIMESTAMP</span> <span class="literal">NULL</span> <span class="keyword">DEFAULT</span> <span class="literal">NULL</span> <span class="keyword">COMMENT</span> <span class="string">'delete time'</span>,</span><br><span class="line">    PRIMARY <span class="keyword">KEY</span>(<span class="string">`id`</span>)</span><br><span class="line">)<span class="keyword">ENGINE</span>=<span class="keyword">InnoDB</span> AUTO_INCREMENT=<span class="number">1</span> <span class="keyword">DEFAULT</span> <span class="keyword">CHARSET</span>=utf8mb4 <span class="keyword">COMMENT</span>=<span class="string">'user table'</span>;</span><br></pre></td></tr></table></figure>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> `<span class="keyword">USER</span>`(</span><br><span class="line">    `id` <span class="type">INT</span> UNSIGNED <span class="keyword">NOT</span> <span class="keyword">NULL</span> AUTO_INCREMENT COMMENT <span class="string">&#x27;primary key&#x27;</span>,</span><br><span class="line">    `ip_address` <span class="type">INT</span>  <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="number">0</span> COMMENT <span class="string">&#x27;ip_address&#x27;</span>,</span><br><span class="line">    `nickname`    <span class="type">VARCHAR</span>(<span class="number">128</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">&#x27;&#x27;</span> COMMENT <span class="string">&#x27;user note&#x27;</span>,</span><br><span class="line">    `description` <span class="type">VARCHAR</span>(<span class="number">256</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">&#x27;&#x27;</span> COMMENT <span class="string">&#x27;user description&#x27;</span>,</span><br><span class="line">    `creator_email` <span class="type">VARCHAR</span>(<span class="number">64</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">&#x27;&#x27;</span> COMMENT <span class="string">&#x27;creator email&#x27;</span>,</span><br><span class="line">    `created_at` <span class="type">TIMESTAMP</span> <span class="keyword">NOT</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="built_in">CURRENT_TIMESTAMP</span> COMMENT <span class="string">&#x27;create time&#x27;</span>,</span><br><span class="line">    `deleted_at` <span class="type">TIMESTAMP</span> <span class="keyword">NULL</span> <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span> COMMENT <span class="string">&#x27;delete time&#x27;</span>,</span><br><span class="line">    <span class="keyword">PRIMARY</span> KEY(`id`)</span><br><span class="line">)ENGINE<span class="operator">=</span>InnoDB AUTO_INCREMENT<span class="operator">=</span><span class="number">1</span> <span class="keyword">DEFAULT</span> CHARSET<span class="operator">=</span>utf8mb4 COMMENT<span class="operator">=</span><span class="string">&#x27;user table&#x27;</span>;</span><br></pre></td></tr></table></figure>
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/2020/07/07/SQL%E7%9A%84%E5%88%9B%E5%BB%BA%E8%AF%AD%E5%8F%A5%E8%BD%AC%E5%8C%96%E6%88%90Golang%E7%9A%84ORM%E7%BB%93%E6%9E%84%E4%BD%93-struct/#more" rel="contents">
@@ -1008,7 +1008,7 @@
 
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
-  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <p class="site-author-name" itemprop="name">LiangYaopei</p>
   <div class="site-description" itemprop="description"></div>
 </div>
 <div class="site-state-wrap motion-element">
@@ -1078,7 +1078,7 @@
   <span class="with-love">
     <i class="fa fa-heart"></i>
   </span>
-  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+  <span class="author" itemprop="copyrightHolder">LiangYaopei</span>
 </div>
 
         

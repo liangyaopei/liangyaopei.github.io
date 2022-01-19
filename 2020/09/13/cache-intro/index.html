@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 4.2.1">
+<meta name="generator" content="Hexo 5.2.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
@@ -32,7 +32,7 @@
 <meta property="og:image" content="https://liangyaopei.github.io/2020/09/13/cache-intro/write_around.png">
 <meta property="article:published_time" content="2020-09-13T02:14:06.000Z">
 <meta property="article:modified_time" content="2020-10-02T06:51:03.867Z">
-<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:author" content="LiangYaopei">
 <meta property="article:tag" content="Cache">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:image" content="https://liangyaopei.github.io/2020/09/13/cache-intro/write_through.png">
@@ -170,7 +170,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -219,7 +219,7 @@
 <h4 id="LRU-Least-Recently-Used"><a href="#LRU-Least-Recently-Used" class="headerlink" title="LRU (Least Recently Used)"></a>LRU (Least Recently Used)</h4><p>LRU是最近最少使用，当缓存满了，会先移除缓存中最近最少使用的记录。</p>
 <h4 id="LFU-Least-Frequently-Used"><a href="#LFU-Least-Frequently-Used" class="headerlink" title="LFU (Least Frequently Used)"></a>LFU (Least Frequently Used)</h4><p>LFU是最少频繁使用，它会保存缓存中每条记录被访问的次数，优先移除访问次数最少的记录。</p>
 <h5 id="MRU-Most-Recently-Used"><a href="#MRU-Most-Recently-Used" class="headerlink" title="MRU (Most Recently Used)"></a>MRU (Most Recently Used)</h5><p>MRU是最近最多使用，当缓存满了，会先移除缓存中最近使用最多的记录。</p>
-<h2 id="缓存更新的策略"><a href="#缓存更新的策略" class="headerlink" title="缓存更新的策略"></a>缓存更新的策略</h2><h3 id="Write-Through-Cache"><a href="#Write-Through-Cache" class="headerlink" title="Write Through Cache"></a>Write Through Cache</h3><p>策略：每次数据的更新，都是同时写到缓存和数据库。<br>这样的优点是保持了数据库和缓存数据的同步，每次读缓存都能读到最近的数据。缺点是增加了系统进行更新操作的时间。<br>这个策略不适用于更新操作频繁的系统。适用于一旦写入数据库，需要重复读取数据的系统。<br>下面是<a href="https://en.wikipedia.org/wiki/Cache_(computing)" target="_blank" rel="noopener">维基百科</a>的图示。<br><img src="write_through.png" alt="write through"></p>
+<h2 id="缓存更新的策略"><a href="#缓存更新的策略" class="headerlink" title="缓存更新的策略"></a>缓存更新的策略</h2><h3 id="Write-Through-Cache"><a href="#Write-Through-Cache" class="headerlink" title="Write Through Cache"></a>Write Through Cache</h3><p>策略：每次数据的更新，都是同时写到缓存和数据库。<br>这样的优点是保持了数据库和缓存数据的同步，每次读缓存都能读到最近的数据。缺点是增加了系统进行更新操作的时间。<br>这个策略不适用于更新操作频繁的系统。适用于一旦写入数据库，需要重复读取数据的系统。<br>下面是<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Cache_(computing)">维基百科</a>的图示。<br><img src="write_through.png" alt="write through"></p>
 <h3 id="Write-Back-Cache"><a href="#Write-Back-Cache" class="headerlink" title="Write Back Cache"></a>Write Back Cache</h3><p>策略：每次数据的更新，先写到缓存，然后启动异步任务，定时将缓存中被修改的数据同步到数据库。<br>这个策略没有Write Through Cache的缺点。因为每次的更新操作都是只是更新缓存，更新的速度会加快，而且，因为是批量更新数据库，从而更新数据库的效率会提高。<br>缺点是，这会导致数据库和缓存的数据存在迟延，如果缓存挂了，会导致数据丢失。<br><img src="write_back.png" alt="write back"></p>
 <h3 id="Write-Around"><a href="#Write-Around" class="headerlink" title="Write Around"></a>Write Around</h3><p>这是最常用的策略了。<br>策略：每次数据的更新，先把数据存到数据库中，成功后，再让缓存失效。<br><img src="write_around.png" alt="write around"></p>
 <p>在这里，为什么不是写完数据库后更新缓存？这主要是怕两个并发的写操作导致脏数据。</p>
@@ -267,7 +267,7 @@
   <div id="qr" style="display: none;">
       
       <div style="display: inline-block;">
-        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <img src="/images/pay/wechatpay.jpg" alt="LiangYaopei 微信支付">
         <p>微信支付</p>
       </div>
 
@@ -351,13 +351,13 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#缓存的核心概念"><span class="nav-number">1.</span> <span class="nav-text">缓存的核心概念</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#存活时间（TTL，Time-To-Live）"><span class="nav-number">1.1.</span> <span class="nav-text">存活时间（TTL，Time To Live）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#逐出策略-Eviction-Policy"><span class="nav-number">1.2.</span> <span class="nav-text">逐出策略(Eviction Policy)</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#LRU-Least-Recently-Used"><span class="nav-number">1.2.1.</span> <span class="nav-text">LRU (Least Recently Used)</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#LFU-Least-Frequently-Used"><span class="nav-number">1.2.2.</span> <span class="nav-text">LFU (Least Frequently Used)</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#MRU-Most-Recently-Used"><span class="nav-number">1.2.2.1.</span> <span class="nav-text">MRU (Most Recently Used)</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#缓存更新的策略"><span class="nav-number">2.</span> <span class="nav-text">缓存更新的策略</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Write-Through-Cache"><span class="nav-number">2.1.</span> <span class="nav-text">Write Through Cache</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Write-Back-Cache"><span class="nav-number">2.2.</span> <span class="nav-text">Write Back Cache</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Write-Around"><span class="nav-number">2.3.</span> <span class="nav-text">Write Around</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BC%93%E5%AD%98%E7%9A%84%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5"><span class="nav-number">1.</span> <span class="nav-text">缓存的核心概念</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AD%98%E6%B4%BB%E6%97%B6%E9%97%B4%EF%BC%88TTL%EF%BC%8CTime-To-Live%EF%BC%89"><span class="nav-number">1.1.</span> <span class="nav-text">存活时间（TTL，Time To Live）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%90%E5%87%BA%E7%AD%96%E7%95%A5-Eviction-Policy"><span class="nav-number">1.2.</span> <span class="nav-text">逐出策略(Eviction Policy)</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#LRU-Least-Recently-Used"><span class="nav-number">1.2.1.</span> <span class="nav-text">LRU (Least Recently Used)</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#LFU-Least-Frequently-Used"><span class="nav-number">1.2.2.</span> <span class="nav-text">LFU (Least Frequently Used)</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#MRU-Most-Recently-Used"><span class="nav-number">1.2.2.1.</span> <span class="nav-text">MRU (Most Recently Used)</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BC%93%E5%AD%98%E6%9B%B4%E6%96%B0%E7%9A%84%E7%AD%96%E7%95%A5"><span class="nav-number">2.</span> <span class="nav-text">缓存更新的策略</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Write-Through-Cache"><span class="nav-number">2.1.</span> <span class="nav-text">Write Through Cache</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Write-Back-Cache"><span class="nav-number">2.2.</span> <span class="nav-text">Write Back Cache</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Write-Around"><span class="nav-number">2.3.</span> <span class="nav-text">Write Around</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
-  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <p class="site-author-name" itemprop="name">LiangYaopei</p>
   <div class="site-description" itemprop="description"></div>
 </div>
 <div class="site-state-wrap motion-element">
@@ -427,7 +427,7 @@
   <span class="with-love">
     <i class="fa fa-heart"></i>
   </span>
-  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+  <span class="author" itemprop="copyrightHolder">LiangYaopei</span>
 </div>
 
         

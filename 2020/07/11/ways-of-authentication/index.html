@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 4.2.1">
+<meta name="generator" content="Hexo 5.2.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
@@ -31,7 +31,7 @@
 <meta property="og:image" content="https://liangyaopei.github.io/2020/07/11/ways-of-authentication/token_based_auth.png">
 <meta property="article:published_time" content="2020-07-11T12:16:21.000Z">
 <meta property="article:modified_time" content="2020-10-02T06:51:03.891Z">
-<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:author" content="LiangYaopei">
 <meta property="article:tag" content="Authentication">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:image" content="https://liangyaopei.github.io/2020/07/11/ways-of-authentication/cookie_base_auth.png">
@@ -169,7 +169,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -209,12 +209,12 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <h2 id="基于Session的认证"><a href="#基于Session的认证" class="headerlink" title="基于Session的认证"></a>基于Session的认证</h2><p><a href="https://stackoverflow.com/questions/13200152/why-is-it-said-that-http-is-a-stateless-protocol" target="_blank" rel="noopener">HTTP协议</a>是无状态(stateless)的，这意味着，如果在一个请求中，用户传递了用户名和密码，通过了我们的认证。在用户的下一个请求中，我们仍然不能识别这个认证通过的用户，还需要认证一遍，因为两次HTTP请求是没有关联。<br>为了解决这个问题，session，也就是基于cookie的认证产生了。</p>
+        <h2 id="基于Session的认证"><a href="#基于Session的认证" class="headerlink" title="基于Session的认证"></a>基于Session的认证</h2><p><a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/13200152/why-is-it-said-that-http-is-a-stateless-protocol">HTTP协议</a>是无状态(stateless)的，这意味着，如果在一个请求中，用户传递了用户名和密码，通过了我们的认证。在用户的下一个请求中，我们仍然不能识别这个认证通过的用户，还需要认证一遍，因为两次HTTP请求是没有关联。<br>为了解决这个问题，session，也就是基于cookie的认证产生了。</p>
 <a id="more"></a> 
 
 <h3 id="基于session认证的流程"><a href="#基于session认证的流程" class="headerlink" title="基于session认证的流程"></a>基于session认证的流程</h3><ol>
 <li>用户在浏览器中输入账号密码，向服务器发送请求</li>
-<li>服务器接收到请求后，校验用户数据。校验成功的话，生成一个唯一的，随机的的token，保存下来，发送给用户。唯一性是保证用户登录的唯一性。随机性，如果token是可以猜测的，攻击者伪造token，登录他人的账号。下面使用<code>Golang</code>随机生成token的例子<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(manager *Manager)</span> <span class="title">sessionId</span><span class="params">()</span> <span class="title">string</span></span> &#123;</span><br><span class="line">    b := <span class="built_in">make</span>([]<span class="keyword">byte</span>, <span class="number">32</span>)</span><br><span class="line">    <span class="keyword">if</span> _, err := io.ReadFull(rand.Reader, b); err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="string">""</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> base64.URLEncoding.EncodeToString(b)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+<li>服务器接收到请求后，校验用户数据。校验成功的话，生成一个唯一的，随机的的token，保存下来，发送给用户。唯一性是保证用户登录的唯一性。随机性，如果token是可以猜测的，攻击者伪造token，登录他人的账号。下面使用<code>Golang</code>随机生成token的例子<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(manager *Manager)</span> <span class="title">sessionId</span><span class="params">()</span> <span class="title">string</span></span> &#123;</span><br><span class="line">    b := <span class="built_in">make</span>([]<span class="keyword">byte</span>, <span class="number">32</span>)</span><br><span class="line">    <span class="keyword">if</span> _, err := io.ReadFull(rand.Reader, b); err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;&quot;</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> base64.URLEncoding.EncodeToString(b)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
 <li>浏览器将token保存在cookie中，并且接下来的每个请求，都带上这个cookie。</li>
 <li>服务器接到带有cookie的请求，解析cookie来确定用户的身份。</li>
 <li>如果用户退出，发送请求给服务器，服务器删除这个cookie.<br><img src="cookie_base_auth.png" alt="cookie-base-auth-flow"></li>
@@ -224,7 +224,7 @@
 <li>每次用户认证后，服务器都要创建一条记录(session),这个session一般保存在内存中。当很多用户同时认证后，就会有很多条记录，增加服务器负担。</li>
 <li>如果session保存在内存中，不利于可扩展性。例如，服务器集群做了负载均衡后，认证请求被发送到服务器A，服务器A保存session。后面的请求被发送到服务器B,但是服务器B没有保存这个session，认证失败。一般解决方法是讲session保存在数据库（例如redis），服务器到数据库查询session。但是这增加了查询的开销。</li>
 </ul>
-<h2 id="基于Token的认证"><a href="#基于Token的认证" class="headerlink" title="基于Token的认证"></a>基于Token的认证</h2><p>基于Token的认证是近几年非常流行的认证方式。基于token的认证中，最常用的是<a href="https://jwt.io/introduction/" target="_blank" rel="noopener">JSON Web Tokens</a>。</p>
+<h2 id="基于Token的认证"><a href="#基于Token的认证" class="headerlink" title="基于Token的认证"></a>基于Token的认证</h2><p>基于Token的认证是近几年非常流行的认证方式。基于token的认证中，最常用的是<a target="_blank" rel="noopener" href="https://jwt.io/introduction/">JSON Web Tokens</a>。</p>
 <h3 id="基于Token认证的流程"><a href="#基于Token认证的流程" class="headerlink" title="基于Token认证的流程"></a>基于Token认证的流程</h3><ol>
 <li>用户输入账号密码</li>
 <li>服务器对用户信息进行校验。校验成功后，返回一个签名的token。</li>
@@ -240,8 +240,8 @@
 <li>易于实现<br>对于移动端来说（iOS，Android，lot），使用cookie会用很多的限制。<br>但是token对移动端来说，都很好实现。</li>
 </ol>
 <h2 id="无密码的认证"><a href="#无密码的认证" class="headerlink" title="无密码的认证"></a>无密码的认证</h2><p>例如，使用手机号登录。用户输入手机号，服务器发送一个在短时间内有效，只能一次使用的验证码给用户，用户使用验证码登录。<br>同样的，邮件也是类似的原理。这种登录方式不需要用户记住密码。<br>登录成功后，服务器返回token给用户。</p>
-<h2 id="单点登录-Single-Sign-On-SSO"><a href="#单点登录-Single-Sign-On-SSO" class="headerlink" title="单点登录(Single Sign-On,SSO)"></a>单点登录(Single Sign-On,SSO)</h2><h2 id="社交账号登录"><a href="#社交账号登录" class="headerlink" title="社交账号登录"></a>社交账号登录</h2><p>这种实现一般是Open Authentication, 详情可以看<a href="https://www.liangyaopei.com/2020/07/11/what-is-oauth/" target="_blank" rel="noopener">OAuth介绍</a></p>
-<h2 id="双因素验证-Two-Factor-Authentication-2FA"><a href="#双因素验证-Two-Factor-Authentication-2FA" class="headerlink" title="双因素验证(Two-Factor Authentication,2FA):"></a>双因素验证(Two-Factor Authentication,2FA):</h2><h2 id="相关文章"><a href="#相关文章" class="headerlink" title="相关文章"></a>相关文章</h2><p><a href="https://www.liangyaopei.com/2020/07/10/password-storage/" target="_blank" rel="noopener">如何保存你的登录密码</a><br><a href="https://www.liangyaopei.com/2020/07/11/what-is-oauth/" target="_blank" rel="noopener">OAuth介绍</a></p>
+<h2 id="单点登录-Single-Sign-On-SSO"><a href="#单点登录-Single-Sign-On-SSO" class="headerlink" title="单点登录(Single Sign-On,SSO)"></a>单点登录(Single Sign-On,SSO)</h2><h2 id="社交账号登录"><a href="#社交账号登录" class="headerlink" title="社交账号登录"></a>社交账号登录</h2><p>这种实现一般是Open Authentication, 详情可以看<a target="_blank" rel="noopener" href="https://www.liangyaopei.com/2020/07/11/what-is-oauth/">OAuth介绍</a></p>
+<h2 id="双因素验证-Two-Factor-Authentication-2FA"><a href="#双因素验证-Two-Factor-Authentication-2FA" class="headerlink" title="双因素验证(Two-Factor Authentication,2FA):"></a>双因素验证(Two-Factor Authentication,2FA):</h2><h2 id="相关文章"><a href="#相关文章" class="headerlink" title="相关文章"></a>相关文章</h2><p><a target="_blank" rel="noopener" href="https://www.liangyaopei.com/2020/07/10/password-storage/">如何保存你的登录密码</a><br><a target="_blank" rel="noopener" href="https://www.liangyaopei.com/2020/07/11/what-is-oauth/">OAuth介绍</a></p>
 
     </div>
 
@@ -256,7 +256,7 @@
   <div id="qr" style="display: none;">
       
       <div style="display: inline-block;">
-        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <img src="/images/pay/wechatpay.jpg" alt="LiangYaopei 微信支付">
         <p>微信支付</p>
       </div>
 
@@ -340,13 +340,13 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#基于Session的认证"><span class="nav-number">1.</span> <span class="nav-text">基于Session的认证</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#基于session认证的流程"><span class="nav-number">1.1.</span> <span class="nav-text">基于session认证的流程</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#基于Token的认证"><span class="nav-number">2.</span> <span class="nav-text">基于Token的认证</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#基于Token认证的流程"><span class="nav-number">2.1.</span> <span class="nav-text">基于Token认证的流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#token认证的优点"><span class="nav-number">2.2.</span> <span class="nav-text">token认证的优点</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#无密码的认证"><span class="nav-number">3.</span> <span class="nav-text">无密码的认证</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#单点登录-Single-Sign-On-SSO"><span class="nav-number">4.</span> <span class="nav-text">单点登录(Single Sign-On,SSO)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#社交账号登录"><span class="nav-number">5.</span> <span class="nav-text">社交账号登录</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#双因素验证-Two-Factor-Authentication-2FA"><span class="nav-number">6.</span> <span class="nav-text">双因素验证(Two-Factor Authentication,2FA):</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#相关文章"><span class="nav-number">7.</span> <span class="nav-text">相关文章</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E4%BA%8ESession%E7%9A%84%E8%AE%A4%E8%AF%81"><span class="nav-number">1.</span> <span class="nav-text">基于Session的认证</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9F%BA%E4%BA%8Esession%E8%AE%A4%E8%AF%81%E7%9A%84%E6%B5%81%E7%A8%8B"><span class="nav-number">1.1.</span> <span class="nav-text">基于session认证的流程</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E4%BA%8EToken%E7%9A%84%E8%AE%A4%E8%AF%81"><span class="nav-number">2.</span> <span class="nav-text">基于Token的认证</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9F%BA%E4%BA%8EToken%E8%AE%A4%E8%AF%81%E7%9A%84%E6%B5%81%E7%A8%8B"><span class="nav-number">2.1.</span> <span class="nav-text">基于Token认证的流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#token%E8%AE%A4%E8%AF%81%E7%9A%84%E4%BC%98%E7%82%B9"><span class="nav-number">2.2.</span> <span class="nav-text">token认证的优点</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%97%A0%E5%AF%86%E7%A0%81%E7%9A%84%E8%AE%A4%E8%AF%81"><span class="nav-number">3.</span> <span class="nav-text">无密码的认证</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95-Single-Sign-On-SSO"><span class="nav-number">4.</span> <span class="nav-text">单点登录(Single Sign-On,SSO)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%A4%BE%E4%BA%A4%E8%B4%A6%E5%8F%B7%E7%99%BB%E5%BD%95"><span class="nav-number">5.</span> <span class="nav-text">社交账号登录</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%8C%E5%9B%A0%E7%B4%A0%E9%AA%8C%E8%AF%81-Two-Factor-Authentication-2FA"><span class="nav-number">6.</span> <span class="nav-text">双因素验证(Two-Factor Authentication,2FA):</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9B%B8%E5%85%B3%E6%96%87%E7%AB%A0"><span class="nav-number">7.</span> <span class="nav-text">相关文章</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
-  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <p class="site-author-name" itemprop="name">LiangYaopei</p>
   <div class="site-description" itemprop="description"></div>
 </div>
 <div class="site-state-wrap motion-element">
@@ -416,7 +416,7 @@
   <span class="with-love">
     <i class="fa fa-heart"></i>
   </span>
-  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+  <span class="author" itemprop="copyrightHolder">LiangYaopei</span>
 </div>
 
         

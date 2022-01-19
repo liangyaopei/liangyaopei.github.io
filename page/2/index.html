@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 4.2.1">
+<meta name="generator" content="Hexo 5.2.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
@@ -25,7 +25,7 @@
 <meta property="og:url" content="https://liangyaopei.github.io/page/2/index.html">
 <meta property="og:site_name" content="Random walk to my blog">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:author" content="LiangYaopei">
 <meta name="twitter:card" content="summary">
 
 <link rel="canonical" href="https://liangyaopei.github.io/page/2/">
@@ -160,7 +160,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -238,7 +238,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -310,7 +310,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -384,7 +384,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -428,8 +428,8 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>在<a href="https://golang.org/doc/faq#no_goroutine_id" target="_blank" rel="noopener">Golang的FAQ</a>中，解释了为什么<code>goroutine</code>是匿名的，没有暴露出ID等状态信息，主要是因为如果一个特定的<code>goroutine</code>有了名字(ID)，开发者就会忽略使用多个<code>goroutine</code>来处理信息的可能，从而限制库的使用。</p>
-<p>但是，有时候开发者也需要获取<code>goroutine</code>来进行特定的操作。本文介绍如何<a href="https://github.com/liangyaopei/goroutineinfo" target="_blank" rel="noopener">从堆栈信息中获取goroutine信息</a>。</p>
+          <p>在<a target="_blank" rel="noopener" href="https://golang.org/doc/faq#no_goroutine_id">Golang的FAQ</a>中，解释了为什么<code>goroutine</code>是匿名的，没有暴露出ID等状态信息，主要是因为如果一个特定的<code>goroutine</code>有了名字(ID)，开发者就会忽略使用多个<code>goroutine</code>来处理信息的可能，从而限制库的使用。</p>
+<p>但是，有时候开发者也需要获取<code>goroutine</code>来进行特定的操作。本文介绍如何<a target="_blank" rel="noopener" href="https://github.com/liangyaopei/goroutineinfo">从堆栈信息中获取goroutine信息</a>。</p>
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/2020/10/02/goroutine-id/#more" rel="contents">
@@ -460,7 +460,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -532,7 +532,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -604,7 +604,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -676,7 +676,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -726,7 +726,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>Golang中，在接受和发送数据的同时，channel决定一个<code>Goroutine</code>是执行还是阻塞。关于Golang的调度器，可以看<a href="https://morsmachine.dk/go-scheduler" target="_blank" rel="noopener">这里</a>。</p>
+          <p>Golang中，在接受和发送数据的同时，channel决定一个<code>Goroutine</code>是执行还是阻塞。关于Golang的调度器，可以看<a target="_blank" rel="noopener" href="https://morsmachine.dk/go-scheduler">这里</a>。</p>
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/2020/08/16/golang-channel/#more" rel="contents">
@@ -757,7 +757,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -838,7 +838,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -963,7 +963,7 @@
 
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
-  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <p class="site-author-name" itemprop="name">LiangYaopei</p>
   <div class="site-description" itemprop="description"></div>
 </div>
 <div class="site-state-wrap motion-element">
@@ -1033,7 +1033,7 @@
   <span class="with-love">
     <i class="fa fa-heart"></i>
   </span>
-  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+  <span class="author" itemprop="copyrightHolder">LiangYaopei</span>
 </div>
 
         

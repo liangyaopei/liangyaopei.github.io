@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 4.2.1">
+<meta name="generator" content="Hexo 5.2.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
@@ -34,7 +34,7 @@
 <meta property="og:image" content="https://liangyaopei.github.io/2020/08/01/hyperloglog/cardinality.png">
 <meta property="article:published_time" content="2020-08-01T02:49:01.000Z">
 <meta property="article:modified_time" content="2020-10-02T06:51:03.885Z">
-<meta property="article:author" content="Patrick(liangyaopei)">
+<meta property="article:author" content="LiangYaopei">
 <meta property="article:tag" content="Golang">
 <meta property="article:tag" content="hyperloglog">
 <meta property="article:tag" content="hash">
@@ -174,7 +174,7 @@
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Patrick(liangyaopei)">
+      <meta itemprop="name" content="LiangYaopei">
       <meta itemprop="description" content="">
     </span>
 
@@ -224,26 +224,26 @@
 
       
         <blockquote>
-<p>本文代码在<a href="https://github.com/liangyaopei/hyper" target="_blank" rel="noopener">我的Github仓库</a>,欢迎给star。<br>代码实现参考了<a href="https://en.wikipedia.org/wiki/HyperLogLog" target="_blank" rel="noopener">hyperloglog的维基百科</a></p>
+<p>本文代码在<a target="_blank" rel="noopener" href="https://github.com/liangyaopei/hyper">我的Github仓库</a>,欢迎给star。<br>代码实现参考了<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/HyperLogLog">hyperloglog的维基百科</a></p>
 </blockquote>
 <h2 id="去重计数-Count-distinct"><a href="#去重计数-Count-distinct" class="headerlink" title="去重计数(Count distinct)"></a>去重计数(Count distinct)</h2><p>日常开发中，有时候需要对大量的数据集进行去重计数的工作，这是非常耗费计算资源的。比如说，需要计算某个视频/文章的观看用户数，由于同个用户可能在一天之内多次观看，使用要进行去重操作。如果使用一个hash集合保存用户的id，不仅耗费大量存储空间，也耗费计算的时间。</p>
 <p><code>HyperLogLog</code>适用于数量很大，能容忍少量错误率的去重计数操作，它使用的存储空间非常小，几十字节就能对百万以上的数据进行去重计数。</p>
 <a id="more"></a> 
 
 <h2 id="从简单的计数器说起"><a href="#从简单的计数器说起" class="headerlink" title="从简单的计数器说起"></a>从简单的计数器说起</h2><p>假设数字是均匀分布的，那么计数就是<code>1/x_min</code>。为了是数字分布均匀，我们可以使用<code>hash</code>函数产生的hash值来进行估算这堆数字的基数(cardinality)。<br><img src="hll_simple.png" alt="hll_simple"><br>这个方法具有很高的偏差，并且依赖于最小的hash值。这个hash值有可能很小，从而干扰计数。</p>
-<h2 id="概率性的计数-Probabilistic-counting"><a href="#概率性的计数-Probabilistic-counting" class="headerlink" title="概率性的计数(Probabilistic counting)"></a>概率性的计数(Probabilistic counting)</h2><p>为了减少上一个方法的偏差，我们使用<code>hash(x)</code>这个hash值中的0 bit的个数来估算。这是因为，<code>hash(x)</code>以i个0 bit结尾的概率为<code>1/2^i</code>。<br><img src="hll_bit.png" alt="hll_bit"><br>平均来说，每<code>2^k</code>个数字，会有一个连续的<code>k</code>个0 bit结尾的数字出现。如果用<code>p(xi)</code>表示<code>hash(x)</code>连续0 bit结尾的个数，数字集合<code>{x1,x2,...,xm}</code>的基数是<code>2^R</code>,这里的<code>R=max(p(x1),p(x2),...,p(xm))</code></p>
+<h2 id="概率性的计数-Probabilistic-counting"><a href="#概率性的计数-Probabilistic-counting" class="headerlink" title="概率性的计数(Probabilistic counting)"></a>概率性的计数(Probabilistic counting)</h2><p>为了减少上一个方法的偏差，我们使用<code>hash(x)</code>这个hash值中的0 bit的个数来估算。这是因为，<code>hash(x)</code>以i个0 bit结尾的概率为<code>1/2^i</code>。<br><img src="hll_bit.png" alt="hll_bit"><br>平均来说，每<code>2^k</code>个数字，会有一个连续的<code>k</code>个0 bit结尾的数字出现。如果用<code>p(xi)</code>表示<code>hash(x)</code>连续0 bit结尾的个数，数字集合<code>&#123;x1,x2,...,xm&#125;</code>的基数是<code>2^R</code>,这里的<code>R=max(p(x1),p(x2),...,p(xm))</code></p>
 <p>这个方法有2个缺点</p>
 <ol>
-<li>这里给出的基数都是不连续的，基数<code>2^R</code>的集合是<code>{1,2,4,8,16,32,...1024,...}</code></li>
+<li>这里给出的基数都是不连续的，基数<code>2^R</code>的集合是<code>&#123;1,2,4,8,16,32,...1024,...&#125;</code></li>
 <li>这个方法还是有比较大的偏差，因为它只记录最大的<code>p(xi)</code>,如果只出现一次，估数就有很大的偏差。</li>
 </ol>
 <h2 id="提高精度：LogLog"><a href="#提高精度：LogLog" class="headerlink" title="提高精度：LogLog"></a>提高精度：LogLog</h2><p>为例提高精度，我们可以去多个计数器，然后计算他们的平均值。如果使用多个独立的估数器，取它们的平均值，可以降低误差。<br><img src="hll_accuracy.png" alt="hll_accuracy"></p>
-<p>我们可以通过使用<code>m</code>个独立的，没有关联的hash函数：<code>{h1(x),h2(x),...,hm(x)}</code>,取每个hash函数的最大的连续0bit的个数：<code>R1,R2,...,Rm</code>, <code>2^R=2^(1/m(R1+R2+...+Rm))</code></p>
-<p>但是，这需要输入<code>x</code>经过<code>m</code>个hash函数的计算，这是比较消耗计算资源的。<a href="https://www.ic.unicamp.br/~celio/peer2peer/math/bitmap-algorithms/durand03loglog.pdf" target="_blank" rel="noopener">Durand and Flajolet</a> 提出的方法是, 使用单个的hash函数，让将hash值拆分到不同的bucket。为了将这个hash值拆分成<code>m</code>个不同bucket，取hash值的前<code>k</code>个bit作为索引，并且计算hash值的最后连续为0bit的个数<code>R</code>。</p>
+<p>我们可以通过使用<code>m</code>个独立的，没有关联的hash函数：<code>&#123;h1(x),h2(x),...,hm(x)&#125;</code>,取每个hash函数的最大的连续0bit的个数：<code>R1,R2,...,Rm</code>, <code>2^R=2^(1/m(R1+R2+...+Rm))</code></p>
+<p>但是，这需要输入<code>x</code>经过<code>m</code>个hash函数的计算，这是比较消耗计算资源的。<a target="_blank" rel="noopener" href="https://www.ic.unicamp.br/~celio/peer2peer/math/bitmap-algorithms/durand03loglog.pdf">Durand and Flajolet</a> 提出的方法是, 使用单个的hash函数，让将hash值拆分到不同的bucket。为了将这个hash值拆分成<code>m</code>个不同bucket，取hash值的前<code>k</code>个bit作为索引，并且计算hash值的最后连续为0bit的个数<code>R</code>。</p>
 <p><img src="hll_example.png" alt="hll_example"></p>
 <p>通过<code>m</code>个bucket，我们模拟了使用了<code>m</code>个hansh函数。下面是计数方式<br><img src="cardinality.png" alt="cardinality"><br>上面的<code>constant</code>是0.79402。对于<code>m</code>个bucket，标准差是<code>1.3/sqrt(m)</code>。对于一个2048个bucket，每个bucket是5 bit大小，错误率是2.8%。5 bit大小的bucket，可以用来估算基数高达<code>2^27</code>的基数，而使用的空间大小仅为2048 * 5 = 1.2 KB。</p>
 <blockquote>
-<p>更多内容，访问我的<a href="https://www.liangyaopei.com/" target="_blank" rel="noopener">博客</a></p>
+<p>更多内容，访问我的<a target="_blank" rel="noopener" href="https://www.liangyaopei.com/">博客</a></p>
 </blockquote>
 
     </div>
@@ -259,7 +259,7 @@
   <div id="qr" style="display: none;">
       
       <div style="display: inline-block;">
-        <img src="/images/pay/wechatpay.jpg" alt="Patrick(liangyaopei) 微信支付">
+        <img src="/images/pay/wechatpay.jpg" alt="LiangYaopei 微信支付">
         <p>微信支付</p>
       </div>
 
@@ -345,13 +345,13 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#去重计数-Count-distinct"><span class="nav-number">1.</span> <span class="nav-text">去重计数(Count distinct)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#从简单的计数器说起"><span class="nav-number">2.</span> <span class="nav-text">从简单的计数器说起</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#概率性的计数-Probabilistic-counting"><span class="nav-number">3.</span> <span class="nav-text">概率性的计数(Probabilistic counting)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#提高精度：LogLog"><span class="nav-number">4.</span> <span class="nav-text">提高精度：LogLog</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8E%BB%E9%87%8D%E8%AE%A1%E6%95%B0-Count-distinct"><span class="nav-number">1.</span> <span class="nav-text">去重计数(Count distinct)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%8E%E7%AE%80%E5%8D%95%E7%9A%84%E8%AE%A1%E6%95%B0%E5%99%A8%E8%AF%B4%E8%B5%B7"><span class="nav-number">2.</span> <span class="nav-text">从简单的计数器说起</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E7%8E%87%E6%80%A7%E7%9A%84%E8%AE%A1%E6%95%B0-Probabilistic-counting"><span class="nav-number">3.</span> <span class="nav-text">概率性的计数(Probabilistic counting)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8F%90%E9%AB%98%E7%B2%BE%E5%BA%A6%EF%BC%9ALogLog"><span class="nav-number">4.</span> <span class="nav-text">提高精度：LogLog</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
-  <p class="site-author-name" itemprop="name">Patrick(liangyaopei)</p>
+  <p class="site-author-name" itemprop="name">LiangYaopei</p>
   <div class="site-description" itemprop="description"></div>
 </div>
 <div class="site-state-wrap motion-element">
@@ -421,7 +421,7 @@
   <span class="with-love">
     <i class="fa fa-heart"></i>
   </span>
-  <span class="author" itemprop="copyrightHolder">Patrick(liangyaopei)</span>
+  <span class="author" itemprop="copyrightHolder">LiangYaopei</span>
 </div>
 
         
