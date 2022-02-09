@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liangyaopei.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="微服务架构中，有一些常用的模式用于服务之间的通信&#x2F;协调。本文介绍几种常用的模式：Database per service,Event Sourcing(事件溯源),CQRS(Command-Query Responsibility Segregation, 命令和查询责任分离模式), SAGA 。 Event Sourcing是原子性地更新数据库，然后发布对应更新操作的事件。CQRS(Comman">
+<meta property="og:type" content="article">
+<meta property="og:title" content="微服务的常用模式">
+<meta property="og:url" content="https://liangyaopei.github.io/2022/02/09/microservice-patterns/index.html">
+<meta property="og:site_name" content="Random walk to my blog">
+<meta property="og:description" content="微服务架构中，有一些常用的模式用于服务之间的通信&#x2F;协调。本文介绍几种常用的模式：Database per service,Event Sourcing(事件溯源),CQRS(Command-Query Responsibility Segregation, 命令和查询责任分离模式), SAGA 。 Event Sourcing是原子性地更新数据库，然后发布对应更新操作的事件。CQRS(Comman">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liangyaopei.github.io/2022/02/09/microservice-patterns/event_sourcing_example.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2022/02/09/microservice-patterns/outbox.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2022/02/09/microservice-patterns/transaction_log_tailing.jpg">
+<meta property="og:image" content="https://liangyaopei.github.io/2022/02/09/microservice-patterns/cqrs.png">
+<meta property="og:image" content="https://liangyaopei.github.io/2022/02/09/microservice-patterns/saga.jpg">
+<meta property="article:published_time" content="2022-02-09T02:26:46.000Z">
+<meta property="article:modified_time" content="2022-02-09T08:27:46.479Z">
+<meta property="article:author" content="LiangYaopei">
+<meta property="article:tag" content="design patterns">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://liangyaopei.github.io/2022/02/09/microservice-patterns/event_sourcing_example.jpg">
+
+<link rel="canonical" href="https://liangyaopei.github.io/2022/02/09/microservice-patterns/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>微服务的常用模式 | Random walk to my blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Random walk to my blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">my blog for sharing my knowledge,experience and viewpoint</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2022/02/09/microservice-patterns/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="LiangYaopei">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Random walk to my blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          微服务的常用模式
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-02-09 10:26:46 / 修改时间：16:27:46" itemprop="dateCreated datePublished" datetime="2022-02-09T10:26:46+08:00">2022-02-09</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/microservice/" itemprop="url" rel="index"><span itemprop="name">microservice</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>微服务架构中，有一些常用的模式用于服务之间的通信/协调。本文介绍几种常用的模式：Database per service,Event Sourcing(事件溯源),CQRS(Command-Query Responsibility Segregation, 命令和查询责任分离模式), SAGA 。</p>
+<p>Event Sourcing是原子性地更新数据库，然后发布对应更新操作的事件。CQRS(Command-Query Responsibility Segregation)通常与Event Sourcing一起使用，SAGA用于解决跨服务的分布式事务。</p>
+<a id="more"></a> 
+
+<h2 id="Database-per-service"><a href="#Database-per-service" class="headerlink" title="Database per service"></a>Database per service</h2><p>微服务中，每个服务都有自己独立的数据库，这是因为：</p>
+<ul>
+<li>服务必须松散耦合，以便它们可以独立开发、部署和扩展</li>
+<li>一些业务事务必须强制执行跨越多个服务的数据。例如，下订单用例必须验证新订单不会超过客户的信用额度(Available Credit)。其他业务事务，必须更新多个服务拥有的数据。</li>
+<li>一些业务事务需要查询多个服务拥有的数据。例如，<code>View Available Credit</code> 使用必须查询<code>Customer</code>以找到<code>creditLimit</code>和<code>Orders</code>以计算未结订单的总金额。</li>
+<li>某些查询必须连接由多个服务拥有的数据。例如，查找特定地区的客户及其最近的订单需要客户和订单之间的连接。</li>
+<li>数据库有时需要备份和分片，才能进行扩展。</li>
+<li>不同的服务有不同的数据存储要求。对于某些服务，关系数据库是最佳选择。其他服务可能需要 NoSQL 数据库，例如擅长存储复杂、非结构化数据的 MongoDB，或旨在高效存储和查询图形数据的 Neo4J。</li>
+</ul>
+<p>所以，一个微服务的数据的持久数据只能保持为该服务的私有，并且只能通过其 API 访问。单个服务的事务仅涉及其数据库。</p>
+<h2 id="Event-Sourcing"><a href="#Event-Sourcing" class="headerlink" title="Event Sourcing"></a>Event Sourcing</h2><p>Event Sourcing解决的问题是:</p>
+<blockquote>
+<p>如果发送消息是数据库事务的一部分，然后原子性地执行事务并且发送消息？</p>
+</blockquote>
+<p>需要考虑的地方：</p>
+<ul>
+<li>2PC(两阶段提交)耗时就，不是选项</li>
+<li>如果数据库事务提交，则必须发送消息。反之，如果数据库回滚，则消息一定不能发送</li>
+<li>必选保证发送到broker消息的顺序，和服务创建消息的顺序一致。</li>
+</ul>
+<p>Event Sourcing可以用来解决这个问题。<br>Event Sourcing将一个业务实体（例如，Customer/Order）的状态，保存为一串状态变化的事件。每当业务实体的状态发生变化时，都会将新事件附加到事件列表中。由于保存事件是单个操作，因此它本质上是原子的。</p>
+<p>下面是Event Sourcing的例子：<br><img src="event_sourcing_example.jpg" alt="event_sourcing_example"></p>
+<h3 id="Outbox模式"><a href="#Outbox模式" class="headerlink" title="Outbox模式"></a>Outbox模式</h3><p>Outbox模式是Event Sourcing的应用。<br>使用关系数据库的服务将消息/事件作为本地事务的一部分插入到发件箱(Outbox)表（例如 MESSAGE）中。使用 NoSQL 数据库的服务将消息/事件附加到正在更新的记录（例如文档或项目）的属性。一个单独的消息中继进程(Message relay)将插入数据库的事件发布到消息代理(broker)。<br><img src="outbox.jpg" alt="outbox"></p>
+<p>从<code>message relay</code>到<code>message broker</code>一般有2种方式，Polling(轮询), 和Transaction Log Tailing（事务日志尾追加）。</p>
+<h4 id="Polling"><a href="#Polling" class="headerlink" title="Polling"></a>Polling</h4><p>如果使用的是关系型数据库，可以轮询没有发布的消息：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> OUTBOX ORDERED <span class="keyword">BY</span> ... <span class="keyword">ASC</span></span><br></pre></td></tr></table></figure>
+<p>接下来，MessageRelay 将这些消息发布到消息代理，将一条消息发送到其目标消息通道。最后，它从 OUTBOX 表中删除这些消息：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">BEGIN</span></span><br><span class="line"> <span class="keyword">DELETE</span> <span class="keyword">FROM</span> OUTBOX <span class="keyword">WHERE</span> ID <span class="keyword">in</span> (....)</span><br><span class="line"><span class="keyword">COMMIT</span></span><br></pre></td></tr></table></figure>
+
+<p>轮询数据库是一种简单的方法，在小规模下运行良好。缺点是频繁轮询数据库可能会很昂贵。</p>
+<h4 id="Transaction-Log-Tailing"><a href="#Transaction-Log-Tailing" class="headerlink" title="Transaction Log Tailing"></a>Transaction Log Tailing</h4><p>一个复杂的解决方案是让 MessageRelay 跟踪数据库事务日志（也称为提交日志）。应用程序所做的每个提交的更新都表示为数据库事务日志中的一个条目。事务日志挖掘器可以读取事务日志并将每个更改作为消息发布到消息代理。<br><img src="transaction_log_tailing.jpg" alt="transaction_log_tailing"></p>
+<h2 id="CQRS"><a href="#CQRS" class="headerlink" title="CQRS"></a>CQRS</h2><p>CQRS解决的问题是：</p>
+<blockquote>
+<p>在微服务架构中，实现从多个服务中检索数据的查询？</p>
+</blockquote>
+<p>CQRS(Command-Query Responsibility Segregation), 会分离对数据存储的读写操作。通过定义只读的备份的视图数据库(view database),用来支持查询。视图数据库通过订阅写数据库的操作来保持更新。</p>
+<p>CQRS 将读取和写入分离到不同的模型中，使用命令(command)更新数据，使用查询(query)读取数据。</p>
+<p>为了更好地隔离，您可以将读取数据与写入数据物理分离。在这种情况下，读取数据库可以使用自己的针对查询进行优化的数据模式。例如，它可以存储数据的物化视图，以避免复杂的连接或复杂的 ORM 映射。它甚至可能使用不同类型的数据存储。例如，写数据库可能是关系数据库，而读数据库是文档数据库。</p>
+<p><img src="cqrs.png" alt="cqrs"></p>
+<h2 id="SAGA"><a href="#SAGA" class="headerlink" title="SAGA"></a>SAGA</h2><p>SAGA解决的问题是</p>
+<blockquote>
+<p>如何实现跨服务的事务？</p>
+</blockquote>
+<p>SAGA 设计模式是一种在分布式事务场景中跨微服务管理数据一致性的方法。SAGA是一系列事务，它更新每个服务并发布消息或事件以触发下一个事务步骤。如果一个步骤失败，SAGA会执行抵消前面事务的补偿事务。</p>
+<p><img src="saga.jpg" alt="saga"><br>有两种协调 sagas 的方式：</p>
+<ul>
+<li>Choreography: 每个本地事务发布触发其他服务中的本地事务的域事件</li>
+<li>Orchestration: 编排器（对象）告诉参与者要执行哪些本地事务</li>
+</ul>
+<h3 id="SAGA的问题"><a href="#SAGA的问题" class="headerlink" title="SAGA的问题"></a>SAGA的问题</h3><p>SAGA的问题在于缺乏<code>ACID</code>事务的隔离特性。这是因为一旦该事务提交，每个 saga 的本地事务所做的更新对其他 saga 立即可见。</p>
+<ul>
+<li>丢失更新(lost update):一个<code>saga</code>覆盖而不读取另一个<code>saga</code>所做的更改。</li>
+<li>脏读(dirty read):事务或 saga 读取尚未完成的更新。</li>
+<li>不可重复读(nonrepeatable reads):当不同的 saga 步骤读取不同的数据时，因为读取之间发生了数据更新。</li>
+</ul>
+<h3 id="解决方法"><a href="#解决方法" class="headerlink" title="解决方法"></a>解决方法</h3><ul>
+<li>语义锁(Semantic lock),一种应用程序级锁，其中 saga 的可补偿事务使用信号量来指示更新正在进行中。</li>
+<li>可以按任何顺序执行并产生相同结果的交换更新(Commutative updates)。</li>
+<li>重读值,验证数据没有改变，然后更新记录。如果记录已更改，则步骤中止并且 saga 可能会重新启动。</li>
+</ul>
+<blockquote>
+<p>我的公众号：lyp分享的地方</p>
+<p><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/c_1275466546035740672">我的知乎专栏</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.liangyaopei.com/">我的博客</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/design-patterns/" rel="tag"># design patterns</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/01/30/bff-pattern-intro/" rel="prev" title="BFF模式介绍">
+      <i class="fa fa-chevron-left"></i> BFF模式介绍
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Database-per-service"><span class="nav-number">1.</span> <span class="nav-text">Database per service</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Event-Sourcing"><span class="nav-number">2.</span> <span class="nav-text">Event Sourcing</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Outbox%E6%A8%A1%E5%BC%8F"><span class="nav-number">2.1.</span> <span class="nav-text">Outbox模式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Polling"><span class="nav-number">2.1.1.</span> <span class="nav-text">Polling</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Transaction-Log-Tailing"><span class="nav-number">2.1.2.</span> <span class="nav-text">Transaction Log Tailing</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#CQRS"><span class="nav-number">3.</span> <span class="nav-text">CQRS</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SAGA"><span class="nav-number">4.</span> <span class="nav-text">SAGA</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#SAGA%E7%9A%84%E9%97%AE%E9%A2%98"><span class="nav-number">4.1.</span> <span class="nav-text">SAGA的问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A7%A3%E5%86%B3%E6%96%B9%E6%B3%95"><span class="nav-number">4.2.</span> <span class="nav-text">解决方法</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">LiangYaopei</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">34</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liangyaopei" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yaopei.liang@foxmail.com" title="E-Mail → mailto:yaopei.liang@foxmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://github.com/liangyaopei" title="https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank">Github</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">LiangYaopei</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
