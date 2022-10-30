@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liangyaopei.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="分布式系统(Distributed systems), 通常有多份数据，并且需要保持数据间的同步。然而，我们不能依赖处理节点可靠地工作，网络延迟很容易导致不一致。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="分布式系统的模式">
+<meta property="og:url" content="https://liangyaopei.github.io/2022/06/12/patterns-of-distributed-systems/index.html">
+<meta property="og:site_name" content="Random walk to my blog">
+<meta property="og:description" content="分布式系统(Distributed systems), 通常有多份数据，并且需要保持数据间的同步。然而，我们不能依赖处理节点可靠地工作，网络延迟很容易导致不一致。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-06-12T11:45:49.000Z">
+<meta property="article:modified_time" content="2022-10-30T02:00:34.410Z">
+<meta property="article:author" content="LiangYaopei">
+<meta property="article:tag" content="distributed systems">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liangyaopei.github.io/2022/06/12/patterns-of-distributed-systems/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>分布式系统的模式 | Random walk to my blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Random walk to my blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">my blog for sharing my knowledge,experience and viewpoint</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2022/06/12/patterns-of-distributed-systems/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="LiangYaopei">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Random walk to my blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          分布式系统的模式
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2022-06-12 19:45:49" itemprop="dateCreated datePublished" datetime="2022-06-12T19:45:49+08:00">2022-06-12</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-10-30 10:00:34" itemprop="dateModified" datetime="2022-10-30T10:00:34+08:00">2022-10-30</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>分布式系统(Distributed systems), 通常有多份数据，并且需要保持数据间的同步。然而，我们不能依赖处理节点可靠地工作，网络延迟很容易导致不一致。</p>
+<a id="more"></a> 
+
+<h1 id="分布式系统-实现例子"><a href="#分布式系统-实现例子" class="headerlink" title="分布式系统 - 实现例子"></a>分布式系统 - 实现例子</h1><table>
+<thead>
+<tr>
+<th align="left">类型</th>
+<th align="left">例子</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">数据库(Databases)</td>
+<td align="left">Cassandra, HBase, Riak</td>
+</tr>
+<tr>
+<td align="left">消息代理 (Message Brokers)</td>
+<td align="left">Kafka, Pulsar</td>
+</tr>
+<tr>
+<td align="left">基础设施(Infrastructure)</td>
+<td align="left">Kubernetes, Mesos, Zookeeper, etcd, Consul</td>
+</tr>
+<tr>
+<td align="left">内存数据/计算网格(In Memory Data/Compute Grids)</td>
+<td align="left">Hazelcast, Pivotal Gemfire</td>
+</tr>
+<tr>
+<td align="left">有状态的微服务(Stateful Microservices)</td>
+<td align="left">Akka Actors, Axon</td>
+</tr>
+<tr>
+<td align="left">文件系统(File Systems)</td>
+<td align="left">HDFS, Ceph</td>
+</tr>
+</tbody></table>
+<p>分布式系统，</p>
+<ul>
+<li>它们在多台服务器上运行。集群中的服务器数量可以从少至三台服务器到几千台服务器不等。</li>
+<li>他们管理数据。所以这些本质上是“有状态的”系统</li>
+</ul>
+<p>当多个服务器都在存储同样的数据时，容易导致数据的不一致。上述所有系统都需要解决这些问题。这些系统的实施对这些问题有一些反复出现的解决方案。</p>
+<h1 id="分布式系统遇到的问题"><a href="#分布式系统遇到的问题" class="headerlink" title="分布式系统遇到的问题"></a>分布式系统遇到的问题</h1><h2 id="进程崩溃（Process-Crashes）"><a href="#进程崩溃（Process-Crashes）" class="headerlink" title="进程崩溃（Process Crashes）"></a>进程崩溃（Process Crashes）</h2><p>进程崩溃，可能由于硬件或者软件的错误</p>
+<ul>
+<li>系统管理员可以将进程下线，进行日常维护。</li>
+<li>由于磁盘已满且未正确处理异常，因此可进程能会在执行某些文件 IO 时被操作系统关掉。</li>
+</ul>
+<p>如果进程负责存储数据，它们必须为存储在服务器上的数据提供持久性保证。即使一个进程突然崩溃，它也应该保留它已通知用户它已成功存储的所有数据。根据访问模式，不同的存储引擎具有不同的存储结构，从简单的哈希映射到复杂的图存储。由于将数据刷新到磁盘是最耗时的操作之一，因此并非每次对存储的插入或更新都可以刷新到磁盘。所以大多数数据库都有内存中的存储结构，这些结构只会定期刷新到磁盘。如果进程突然崩溃，这会带来丢失所有数据的风险。</p>
+<p>预写日志( <a target="_blank" rel="noopener" href="https://martinfowler.com/article/2022/06/12/patterns-of-distributed-systems/wal.html">Write-Ahead Log</a> , WAL)的方法可以解决这种情况。服务器将每个状态更改作为命令存储在硬盘上的只追加文件（append-only file）中。只追加文件通常是一个非常快的操作，因此可以在不影响性能的情况下完成。按顺序附加的单个日志用于存储每个更新。在服务器启动时，可以重播日志以再次构建内存状态。</p>
+<p>Write-Ahead lof 提供了数据持久性保证。即使服务器突然崩溃然后重新启动，数据也不会丢失。但在服务器备份之前，客户端将无法获取或存储任何数据。所以我们在服务器故障的情况下缺乏可用性（availability）。</p>
+<p>一个解决方案是将数据存储在多个服务器上。所以我们可以在多台服务器上复制预写日志（<a target="_blank" rel="noopener" href="https://martinfowler.com/article/2022/06/12/patterns-of-distributed-systems/wal.html">Write-Ahead Log</a> , WAL）。</p>
+<p>当涉及多个服务器时，需要考虑更多的故障场景。</p>
+<h2 id="网络延迟-Network-delay"><a href="#网络延迟-Network-delay" class="headerlink" title="网络延迟(Network delay)"></a>网络延迟(Network delay)</h2><p>在典型的数据中心中，服务器被打包在机架中，并且有多个机架通过架顶式交换机( top-of-the-rack switch)连接。可能有一棵交换机树将数据中心的一部分连接到另一部分。在某些情况下，一组服务器可以相互通信，但与另一组服务器断开连接。这种情况称为网络分区(network partition)。服务器通过网络进行通信的基本问题之一是如何知道特定服务器发生故障。</p>
+<p>这里有两个问题需要解决:</p>
+<ul>
+<li>一台服务器不能无限期地等待知道另一台服务器是否已经崩溃。</li>
+<li>不应该有两组服务器，每组都认为另一组发生故障，因此继续为不同的客户端组提供服务。这被称为脑裂（split brain）。</li>
+</ul>
+<p>为了解决第一个问题，每个服务器都会定期向其他服务器发送 心跳 消息（ <a target="_blank" rel="noopener" href="https://martinfowler.com/article/2022/06/12/patterns-of-distributed-systems/heartbeat.html">HeartBeat</a> message ）。如果错过了心跳，则发送心跳的服务器被认为已崩溃。心跳间隔足够小，可以确保检测服务器故障不会花费太多时间。最坏的情况下，服务器可能已重亲并正在运行，但集群任务服务器一崩溃，并且继续运行。</p>
+<p>第二个问题是脑裂（split brain）。在脑裂情况下，两套服务器独立接受更新，不同的客户端可以获取和设置不同的数据，一旦裂脑解决，就无法自动解决更新冲突。</p>
+<p>为了解决脑裂问题，我们必须确保彼此断开连接的两组服务器不能够独立运行。只有当大多数服务器可以确认该操作时，服务器采取的每个操作才被认为是成功的。如果服务器不能获得多数，它们将无法提供所需的服务，并且某些客户端可能无法接收服务，但集群中的服务器将始终处于一致状态。占多数的服务器数量称为Quorum（ <a target="_blank" rel="noopener" href="https://martinfowler.com/article/2022/06/12/patterns-of-distributed-systems/quorum.html">Quorum</a>）。如何决定Quorum？这是根据集群可以容忍的故障数量决定的。因此，如果我们有一个由五个节点组成的集群，我们需要三个Quorum。一般来说，如果我们想容忍 f 个故障，我们需要一个 2f + 1 的集群大小。</p>
+<p>Quorum 确保我们有足够的数据副本来承受一些服务器故障。但是仅仅给客户端提供强一致性保证是不够的。假设客户端在集群上启动写操作，但写操作仅在一台服务器上成功。集群的其他服务器仍然具有旧值。当客户端从集群读取值时，如果具有最新值的服务器可用，它可能会获取最新值。但是如果在客户端开始读取该值时，具有最新值的服务器不可用，则它可能从其他服务器上获取旧值。为了避免这种情况，有人需要跟踪集群是否同意特定操作，并且只向客户端发送保证在所有服务器上可用的值。在这种情况下使用Leader和Follower( <a target="_blank" rel="noopener" href="https://martinfowler.com/article/2022/06/12/patterns-of-distributed-systems/leader-follower.html">Leader and Followers</a>)。其中一个服务器被选为Leader，其他服务器充当Follower。Leader控制和协调Follower上的复制。Leader现在需要决定哪些更改应该对客户可见。高水位标记( <a target="_blank" rel="noopener" href="https://martinfowler.com/article/2022/06/12/patterns-of-distributed-systems/high-watermark.html">High-Water Mark</a> )用于跟踪已知已成功复制到Quorum数量的追随者的预写日志中的条目。客户可以看到所有达到高水位线的条目。领导者还将高水位标记传播给追随者。因此，如果Leader失败并且其中一个Follower成为新的Leader，客户端看到的内容不会出现不一致。</p>
+<h2 id="进程暂停-Process-Pauses"><a href="#进程暂停-Process-Pauses" class="headerlink" title="进程暂停(Process Pauses)"></a>进程暂停(Process Pauses)</h2><p>即使有Quorum、Leader和Follower，也有一个棘手的问题需要解决。Leader进程可能暂停。进程暂停的原因有很多。对于支持垃圾收集的语言，可能会有很长的垃圾收集暂停。一个长时间的垃圾回收暂停的Leader，与Follower断开连接，并在暂停结束后继续向Follower发送消息。同时，由于Follower没有收到Leader的心跳，他们可能已经选举了一个新的Leader并接受了来自客户端的更新。如果来自旧Leader的请求按原样处理，它们可能会覆盖一些更新。所以我们需要一种机制来检测来自过时Leader的请求。在这里，Generation Clock（<a target="_blank" rel="noopener" href="https://martinfowler.com/article/2022/06/12/patterns-of-distributed-systems/generation.html">Generation Clock</a> ） 用于标记和检测来自Leader的请求。Generation是一个单调递增的数字。</p>
+<h2 id="不同步的时钟和排序事件"><a href="#不同步的时钟和排序事件" class="headerlink" title="不同步的时钟和排序事件"></a>不同步的时钟和排序事件</h2><p>从Leader发出的消息中，检测出是否来自新旧Leader，关键在于维护消息的排序。我们不能使用系统时间戳来排序一组消息，主要原因是不能保证跨服务器的系统时钟是同步的，因为晶体可以更快或更慢地振荡，因此不同的服务器可以有不同的时间。服务器使用NTP来获取时间。NTP定期检查一组全球时间服务器，并相应地调整计算机时钟。</p>
+<p>由于通过网络进行通信时会发生这种情况，并且网络延迟可能会有所不同，如以上部分所述，因此时钟同步可能会因网络问题而延迟。这可能会导致服务器时钟彼此偏离，并且在 NTP 同步发生后，时间甚至会向后移动。由于计算机时钟的这些问题，一天中的时间通常不用于排序事件。取而代之的是一种称为 Lamport Clock（<a target="_blank" rel="noopener" href="https://martinfowler.com/article/2022/06/12/patterns-of-distributed-systems/lamport-clock.html">Lamport Clock</a>） 的技术，Generation Clock（ <a target="_blank" rel="noopener" href="https://martinfowler.com/article/2022/06/12/patterns-of-distributed-systems/generation.html">Generation Clock</a> ）就是一个例子。 Lamport Clocks 只是简单的数字，仅当系统中发生某些事件时才会增加。在数据库中，事件是关于写入和读取值的，因此 Lamport Clock仅在写入值时递增。 Lamport Clock 编号也在发送给其他进程的消息中传递。然后，接收进程可以选择两个数字中较大的一个，即它在消息中接收的一个和它维护的一个。通过这种方式，Lamport Clocks 还可以跟踪相互通信的进程之间的事件之间的发生前（heppen-before）关系。这方面的一个例子是参与事务的服务器。虽然 Lamport Clock 允许对事件进行排序，但它与时钟的时间没有任何关系。为了弥补这一差距，使用了一种称为混合时钟（ <a target="_blank" rel="noopener" href="https://martinfowler.com/article/2022/06/12/patterns-of-distributed-systems/hybrid-clock.html">Hybrid Clock</a> ）的变体。混合时钟使用系统时间和一个单独的数字来确保值单调增加，并且可以像 Lamport Clock 一样使用。</p>
+<p>Lamport Clock用于确定一组服务器的事件顺序。但它不能检测不同副本服务器中，发生的对相同值的并发更新。Version Vector（ <a target="_blank" rel="noopener" href="https://martinfowler.com/article/2022/06/12/patterns-of-distributed-systems/version-vector.html">Version Vector</a> ）用于检测一组副本之间的冲突。</p>
+<p>Lamport Clock或Version Vector需要与存储的值相关联，以检测哪些值存储在另一个之后或是否存在冲突。因此服务器将值存储为版本化值（<a target="_blank" rel="noopener" href="https://martinfowler.com/article/2022/06/12/patterns-of-distributed-systems/versioned-value.html">Versioned Value</a>.）。</p>
+<h1 id="把它们放在一起—模式顺序"><a href="#把它们放在一起—模式顺序" class="headerlink" title="把它们放在一起—模式顺序"></a>把它们放在一起—模式顺序</h1><h2 id="容错共识（Fault-Tolerant-Consensus）"><a href="#容错共识（Fault-Tolerant-Consensus）" class="headerlink" title="容错共识（Fault Tolerant Consensus）"></a>容错共识（Fault Tolerant Consensus）</h2>
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/distributed-systems/" rel="tag"># distributed systems</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/02/09/microservice-patterns/" rel="prev" title="微服务的常用模式">
+      <i class="fa fa-chevron-left"></i> 微服务的常用模式
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%88%86%E5%B8%83%E5%BC%8F%E7%B3%BB%E7%BB%9F-%E5%AE%9E%E7%8E%B0%E4%BE%8B%E5%AD%90"><span class="nav-number">1.</span> <span class="nav-text">分布式系统 - 实现例子</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%88%86%E5%B8%83%E5%BC%8F%E7%B3%BB%E7%BB%9F%E9%81%87%E5%88%B0%E7%9A%84%E9%97%AE%E9%A2%98"><span class="nav-number">2.</span> <span class="nav-text">分布式系统遇到的问题</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BF%9B%E7%A8%8B%E5%B4%A9%E6%BA%83%EF%BC%88Process-Crashes%EF%BC%89"><span class="nav-number">2.1.</span> <span class="nav-text">进程崩溃（Process Crashes）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BD%91%E7%BB%9C%E5%BB%B6%E8%BF%9F-Network-delay"><span class="nav-number">2.2.</span> <span class="nav-text">网络延迟(Network delay)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BF%9B%E7%A8%8B%E6%9A%82%E5%81%9C-Process-Pauses"><span class="nav-number">2.3.</span> <span class="nav-text">进程暂停(Process Pauses)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%8D%E5%90%8C%E6%AD%A5%E7%9A%84%E6%97%B6%E9%92%9F%E5%92%8C%E6%8E%92%E5%BA%8F%E4%BA%8B%E4%BB%B6"><span class="nav-number">2.4.</span> <span class="nav-text">不同步的时钟和排序事件</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%8A%8A%E5%AE%83%E4%BB%AC%E6%94%BE%E5%9C%A8%E4%B8%80%E8%B5%B7%E2%80%94%E6%A8%A1%E5%BC%8F%E9%A1%BA%E5%BA%8F"><span class="nav-number">3.</span> <span class="nav-text">把它们放在一起—模式顺序</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%B9%E9%94%99%E5%85%B1%E8%AF%86%EF%BC%88Fault-Tolerant-Consensus%EF%BC%89"><span class="nav-number">3.1.</span> <span class="nav-text">容错共识（Fault Tolerant Consensus）</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">LiangYaopei</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">35</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">36</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liangyaopei" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yaopei.liang@foxmail.com" title="E-Mail → mailto:yaopei.liang@foxmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://github.com/liangyaopei" title="https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank">Github</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">LiangYaopei</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
