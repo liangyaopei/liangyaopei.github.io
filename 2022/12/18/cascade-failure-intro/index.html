@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liangyaopei.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="微服务架构，每个服务功能内聚，独立开发部署和运维，服务间通过接口通信，相比单体架构，开发，部署，扩展，迭代处理更加简单灵活。但是，随着为服务的增多，服务间的依赖关系更加复杂。这是如果单个服务发生故障，有可能导致故障沿着调用链路，扩散至多个上游服务，进而导致多个业务链路故障。故障的发生难以避免，但故障的级联可以避免。微服务之间适当做解耦，可以规避级联故障的发生。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="级联故障介绍">
+<meta property="og:url" content="https://liangyaopei.github.io/2022/12/18/cascade-failure-intro/index.html">
+<meta property="og:site_name" content="Random walk to my blog">
+<meta property="og:description" content="微服务架构，每个服务功能内聚，独立开发部署和运维，服务间通过接口通信，相比单体架构，开发，部署，扩展，迭代处理更加简单灵活。但是，随着为服务的增多，服务间的依赖关系更加复杂。这是如果单个服务发生故障，有可能导致故障沿着调用链路，扩散至多个上游服务，进而导致多个业务链路故障。故障的发生难以避免，但故障的级联可以避免。微服务之间适当做解耦，可以规避级联故障的发生。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liangyaopei.github.io/2022/12/18/cascade-failure-intro/tcp_connect.jpeg">
+<meta property="article:published_time" content="2022-12-18T08:31:36.000Z">
+<meta property="article:modified_time" content="2022-12-18T09:32:13.177Z">
+<meta property="article:author" content="LiangYaopei">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://liangyaopei.github.io/2022/12/18/cascade-failure-intro/tcp_connect.jpeg">
+
+<link rel="canonical" href="https://liangyaopei.github.io/2022/12/18/cascade-failure-intro/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>级联故障介绍 | Random walk to my blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Random walk to my blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">my blog for sharing my knowledge,experience and viewpoint</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2022/12/18/cascade-failure-intro/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="LiangYaopei">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Random walk to my blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          级联故障介绍
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-12-18 16:31:36 / 修改时间：17:32:13" itemprop="dateCreated datePublished" datetime="2022-12-18T16:31:36+08:00">2022-12-18</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/microservice/" itemprop="url" rel="index"><span itemprop="name">microservice</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>微服务架构，每个服务功能内聚，独立开发部署和运维，服务间通过接口通信，相比单体架构，开发，部署，扩展，迭代处理更加简单灵活。<br>但是，随着为服务的增多，服务间的依赖关系更加复杂。这是如果单个服务发生故障，有可能导致故障沿着调用链路，扩散至多个上游服务，进而导致多个业务链路故障。<br>故障的发生难以避免，但故障的级联可以避免。微服务之间适当做解耦，可以规避级联故障的发生。</p>
+<a id="more"></a> 
+<h2 id="级联故障"><a href="#级联故障" class="headerlink" title="级联故障"></a>级联故障</h2><p>级联故障是指一个服务的故障，触发了其他服务的故障。</p>
+<h2 id="超时"><a href="#超时" class="headerlink" title="超时"></a>超时</h2><h3 id="网络超时"><a href="#网络超时" class="headerlink" title="网络超时"></a>网络超时</h3><p>网络调用问问需要阻塞等待响应（IO多路复用相当于单个线程阻塞等待多个链接的事件）。网络环境和下游服务都有可能发生各种异常，导致无响应活慢响应。这对调用方意味着线程阻塞，资源长时间无法释放，进而导致新的请求获取不到相应资源，从到导致本服务异常，故障级联。<br><img src="tcp_connect.jpeg" alt="tcp_connect"></p>
+<blockquote>
+<ol>
+<li>TCP 连接过程中，服务可能负载过高，无暇处理半连接队列。Linux默认的TCP连接超时时间为127秒。</li>
+<li>客户端调用write()发送请求，如果服务器宕机没有返回ACK，则客户端会开始TCP重传，默认15次重传，约20~30分钟。该过程write始终阻塞</li>
+<li>客户端发送请求后，调用read()等待响应。如果服务端故障没有响应，则客户端默认无限等待。</li>
+</ol>
+</blockquote>
+<p>所以，所有网络请求，包括建立连接和网络读写，都需要配置超时时间。</p>
+<p>需要注意的是，Golang的<code>net/http</code>的<code>DefaultClient</code>默认是没有超时配置的。</p>
+<p>当没有初始化<code>http.Client</code>, 使用<code>http.Get</code>或者<code>http.Post</code>执行请求时，默认使用<code>DefaultClient</code>，而<code>DefaultClient=&amp;Client&#123;&#125;</code>, 没有连接超时和读写超时配置。这是危险的，不要在生产环境使用。参见<a target="_blank" rel="noopener" href="https://medium.com/@nate510/don-t-use-go-s-default-http-client-4804cb19f779">这篇文章</a></p>
+<p>正确的做法是，初始化自己的http client,配置合理超时</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> <span class="string">&quot;net/http&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 不建议的用法</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">wrong</span><span class="params">()</span></span> &#123;</span><br><span class="line">	response, err := http.Get(<span class="string">&quot;&quot;</span>)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 建议的用法</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">right</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="keyword">var</span> netTransport = &amp;http.Transport&#123;</span><br><span class="line">		DialContext: (&amp;net.Dialer&#123;</span><br><span class="line">			Timeout: <span class="number">1</span> * time.Second, <span class="comment">// 连接超时</span></span><br><span class="line">		&#125;).DialContext,</span><br><span class="line">	&#125;</span><br><span class="line">	myClient := &amp;http.Client&#123;</span><br><span class="line">		Transport: netTransport,</span><br><span class="line">		Timeout:   <span class="number">1</span> * time.Second, <span class="comment">// 整体超时，包括连接，读写，重定向等</span></span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="连接池-amp-线程池超时"><a href="#连接池-amp-线程池超时" class="headerlink" title="连接池&amp;线程池超时"></a>连接池&amp;线程池超时</h3><p>为了避免重复创建连接的开销，往往使用连接池来管理和复用连接。从设置最大连接数量限制的连接池中获取连接，也需要有超时配置。</p>
+<ul>
+<li>若无超时配置，当服务压力活下游响应慢时，单位时间内，释放的连接少，而新增的等待获取连接的线程多，服务出现故障。</li>
+<li>如果配置了超时时间，则获取不到连接的请求获取连接超时，快速失败，避免整体故障。</li>
+</ul>
+<p>Golang mysql并没有连接池超时的配置项，而是通过context来判断连接池超时。<br>下面<a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/dev.boringcrypto.go1.18/src/database/sql/sql.go#L1330">database/sql代码</a>，当前连接数&gt;最大连接数时，便会阻塞等待释放，或者context超时。如果传入的context没有配置超时，则会无限制等待连接被释放。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// conn returns a newly-opened or cached *driverConn.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(db *DB)</span> <span class="title">conn</span><span class="params">(ctx context.Context, strategy connReuseStrategy)</span> <span class="params">(*driverConn, error)</span></span> &#123;</span><br><span class="line">     <span class="comment">// ..</span></span><br><span class="line">	<span class="comment">// Out of free connections or we were asked not to use one. If we&#x27;re not</span></span><br><span class="line">	<span class="comment">// allowed to open any more connections, make a request and wait.</span></span><br><span class="line">	<span class="keyword">if</span> db.maxOpen &gt; <span class="number">0</span> &amp;&amp; db.numOpen &gt;= db.maxOpen &#123;</span><br><span class="line">		<span class="comment">// Make the connRequest channel. It&#x27;s buffered so that the</span></span><br><span class="line">		<span class="comment">// connectionOpener doesn&#x27;t block while waiting for the req to be read.</span></span><br><span class="line">		req := <span class="built_in">make</span>(<span class="keyword">chan</span> connRequest, <span class="number">1</span>)</span><br><span class="line">		reqKey := db.nextRequestKeyLocked()</span><br><span class="line">		db.connRequests[reqKey] = req</span><br><span class="line">		db.waitCount++</span><br><span class="line">		db.mu.Unlock()</span><br><span class="line"></span><br><span class="line">		waitStart := nowFunc()</span><br><span class="line"></span><br><span class="line">		<span class="comment">// Timeout the connection request with the context.</span></span><br><span class="line">		<span class="keyword">select</span> &#123;</span><br><span class="line">		<span class="keyword">case</span> &lt;-ctx.Done():</span><br><span class="line">			<span class="comment">// Remove the connection request and ensure no value has been sent</span></span><br><span class="line">			<span class="comment">// on it after removing.</span></span><br><span class="line">			db.mu.Lock()</span><br><span class="line">			<span class="built_in">delete</span>(db.connRequests, reqKey)</span><br><span class="line">			db.mu.Unlock()</span><br><span class="line"></span><br><span class="line">			atomic.AddInt64(&amp;db.waitDuration, <span class="keyword">int64</span>(time.Since(waitStart)))</span><br><span class="line"></span><br><span class="line">			<span class="keyword">select</span> &#123;</span><br><span class="line">			<span class="keyword">default</span>:</span><br><span class="line">			<span class="keyword">case</span> ret, ok := &lt;-req:</span><br><span class="line">				<span class="keyword">if</span> ok &amp;&amp; ret.conn != <span class="literal">nil</span> &#123;</span><br><span class="line">					db.putConn(ret.conn, ret.err, <span class="literal">false</span>)</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span>, ctx.Err()</span><br><span class="line">		<span class="keyword">case</span> ret, ok := &lt;-req:</span><br><span class="line">			atomic.AddInt64(&amp;db.waitDuration, <span class="keyword">int64</span>(time.Since(waitStart)))</span><br><span class="line"></span><br><span class="line">			<span class="keyword">if</span> !ok &#123;</span><br><span class="line">				<span class="keyword">return</span> <span class="literal">nil</span>, errDBClosed</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="comment">// Only check if the connection is expired if the strategy is cachedOrNewConns.</span></span><br><span class="line">			<span class="comment">// If we require a new connection, just re-use the connection without looking</span></span><br><span class="line">			<span class="comment">// at the expiry time. If it is expired, it will be checked when it is placed</span></span><br><span class="line">			<span class="comment">// back into the connection pool.</span></span><br><span class="line">			<span class="comment">// This prioritizes giving a valid connection to a client over the exact connection</span></span><br><span class="line">			<span class="comment">// lifetime, which could expire exactly after this point anyway.</span></span><br><span class="line">			<span class="keyword">if</span> strategy == cachedOrNewConn &amp;&amp; ret.err == <span class="literal">nil</span> &amp;&amp; ret.conn.expired(lifetime) &#123;</span><br><span class="line">				db.mu.Lock()</span><br><span class="line">				db.maxLifetimeClosed++</span><br><span class="line">				db.mu.Unlock()</span><br><span class="line">				ret.conn.Close()</span><br><span class="line">				<span class="keyword">return</span> <span class="literal">nil</span>, driver.ErrBadConn</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">if</span> ret.conn == <span class="literal">nil</span> &#123;</span><br><span class="line">				<span class="keyword">return</span> <span class="literal">nil</span>, ret.err</span><br><span class="line">			&#125;</span><br><span class="line"></span><br><span class="line">			<span class="comment">// Reset the session if required.</span></span><br><span class="line">			<span class="keyword">if</span> err := ret.conn.resetSession(ctx); errors.Is(err, driver.ErrBadConn) &#123;</span><br><span class="line">				ret.conn.Close()</span><br><span class="line">				<span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">return</span> ret.conn, ret.err</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+
+<p>获取连接超时错误，比起阻塞等待连接，服务可用性更高。</p>
+<h2 id="熔断"><a href="#熔断" class="headerlink" title="熔断"></a>熔断</h2><p>熔断的作用是：</p>
+<ol>
+<li>减少下游压力。如果下游服务过载，熔断机制降低了对下游的访问量，能给下游喘息的机会。</li>
+<li>快速失败，减少上游资源，避免下游故障级联到上游。<ul>
+<li>如果调用下游大比例失败，则不用浪费资源反复调用</li>
+<li>如果下游响应慢，请求超时，可以避免资源在等待超时期间的锁定和浪费。熔断和超时产生协同作用。快速失败的资源节省效果明显，避免上游资源浪费在超时的等待。而且超时的时候，上游往往进行重试，进一步增加下游的压力。熔断避免了故障时额外的重试压力，而且不影响常规的重试。</li>
+</ul>
+</li>
+</ol>
+<h2 id="限制下游返回"><a href="#限制下游返回" class="headerlink" title="限制下游返回"></a>限制下游返回</h2><p>当下游服务返回不符合预期是，比如响应体过大，会引发上游服务雪崩。上游服务需要对下游返回做严格校验，以保护自身不被拖垮。尤其是上游服务是流量汇聚点时。</p>
+<h2 id="限流"><a href="#限流" class="headerlink" title="限流"></a>限流</h2><p>超时，熔断和限制下游返回都是上游视角，针对下游无响应，慢响应，响应异常的情况，保护自身，以免被级联。</p>
+<p>限流和过载保护则是下游服务对自身处理能力的限制和保护，既保护自己不雪崩，也避免慢响应影响上游。</p>
+<p>过载保护，就是在系统负载超过系统最大处理能力时，主动拒绝流量，以保持最大处理能力，避免雪崩。这也是一种fail fast的思想。高负载下的慢响应，比返回错误糟糕。Fail Fast允许调用系统快速完成对任务的处理，这最终是成功还是失败取决于应用程序逻辑，而慢响应会长时间占用系统和被调用系统的资源。</p>
+<p>限流工具，可以分为入口限流和出口限流，又可以分为固定预支限流和自适应动态限流。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ol>
+<li>快速失败思想: 超时，熔断，限流，过载，丢弃过大响应都是快速失败思想的具体时间。分布式系统中，延迟是致命的，慢响应的系统比快速失败的系统更难处理。</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/11/09/rocketmq-intro/" rel="prev" title="RocketMQ介绍">
+      <i class="fa fa-chevron-left"></i> RocketMQ介绍
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BA%A7%E8%81%94%E6%95%85%E9%9A%9C"><span class="nav-number">1.</span> <span class="nav-text">级联故障</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B6%85%E6%97%B6"><span class="nav-number">2.</span> <span class="nav-text">超时</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BD%91%E7%BB%9C%E8%B6%85%E6%97%B6"><span class="nav-number">2.1.</span> <span class="nav-text">网络超时</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%BF%9E%E6%8E%A5%E6%B1%A0-amp-%E7%BA%BF%E7%A8%8B%E6%B1%A0%E8%B6%85%E6%97%B6"><span class="nav-number">2.2.</span> <span class="nav-text">连接池&amp;线程池超时</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%86%94%E6%96%AD"><span class="nav-number">3.</span> <span class="nav-text">熔断</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%99%90%E5%88%B6%E4%B8%8B%E6%B8%B8%E8%BF%94%E5%9B%9E"><span class="nav-number">4.</span> <span class="nav-text">限制下游返回</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%99%90%E6%B5%81"><span class="nav-number">5.</span> <span class="nav-text">限流</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">LiangYaopei</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">38</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">37</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liangyaopei" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yaopei.liang@foxmail.com" title="E-Mail → mailto:yaopei.liang@foxmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://github.com/liangyaopei" title="https:&#x2F;&#x2F;github.com&#x2F;liangyaopei" rel="noopener" target="_blank">Github</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">LiangYaopei</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
