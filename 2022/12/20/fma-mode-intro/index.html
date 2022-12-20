@@ -20,28 +20,19 @@
     var CONFIG = {"hostname":"liangyaopei.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="本文代码在我的Github仓库,欢迎给star。代码实现参考了hyperloglog的维基百科  去重计数(Count distinct)日常开发中，有时候需要对大量的数据集进行去重计数的工作，这是非常耗费计算资源的。比如说，需要计算某个视频&#x2F;文章的观看用户数，由于同个用户可能在一天之内多次观看，使用要进行去重操作。如果使用一个hash集合保存用户的id，不仅耗费大量存储空间，也耗费计算的时间。">
+  <meta name="description" content="微软的FMA（Failure Mode Analysis）设计方案, 将自动化的故障治理分为：  Detection: 故障探测，从直接指标上发现是否有某种类型的故障 Recovery: 故障恢复, 自动治理的过程,用于几时止损 Diagnostics: 故障定位, 一般由扔接入，排查故障根因，从本质上解决问题">
 <meta property="og:type" content="article">
-<meta property="og:title" content="HyperLogLog原理以及Golang实现">
-<meta property="og:url" content="https://liangyaopei.github.io/2020/08/01/hyperloglog/index.html">
+<meta property="og:title" content="FMA故障模式介绍">
+<meta property="og:url" content="https://liangyaopei.github.io/2022/12/20/fma-mode-intro/index.html">
 <meta property="og:site_name" content="Random walk to my blog">
-<meta property="og:description" content="本文代码在我的Github仓库,欢迎给star。代码实现参考了hyperloglog的维基百科  去重计数(Count distinct)日常开发中，有时候需要对大量的数据集进行去重计数的工作，这是非常耗费计算资源的。比如说，需要计算某个视频&#x2F;文章的观看用户数，由于同个用户可能在一天之内多次观看，使用要进行去重操作。如果使用一个hash集合保存用户的id，不仅耗费大量存储空间，也耗费计算的时间。">
+<meta property="og:description" content="微软的FMA（Failure Mode Analysis）设计方案, 将自动化的故障治理分为：  Detection: 故障探测，从直接指标上发现是否有某种类型的故障 Recovery: 故障恢复, 自动治理的过程,用于几时止损 Diagnostics: 故障定位, 一般由扔接入，排查故障根因，从本质上解决问题">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://liangyaopei.github.io/2020/08/01/hyperloglog/hll_simple.png">
-<meta property="og:image" content="https://liangyaopei.github.io/2020/08/01/hyperloglog/hll_bit.png">
-<meta property="og:image" content="https://liangyaopei.github.io/2020/08/01/hyperloglog/hll_accuracy.png">
-<meta property="og:image" content="https://liangyaopei.github.io/2020/08/01/hyperloglog/hll_example.png">
-<meta property="og:image" content="https://liangyaopei.github.io/2020/08/01/hyperloglog/cardinality.png">
-<meta property="article:published_time" content="2020-08-01T02:49:01.000Z">
-<meta property="article:modified_time" content="2020-10-02T06:51:03.885Z">
+<meta property="article:published_time" content="2022-12-20T08:57:30.000Z">
+<meta property="article:modified_time" content="2022-12-20T09:59:40.212Z">
 <meta property="article:author" content="LiangYaopei">
-<meta property="article:tag" content="Golang">
-<meta property="article:tag" content="hyperloglog">
-<meta property="article:tag" content="hash">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://liangyaopei.github.io/2020/08/01/hyperloglog/hll_simple.png">
 
-<link rel="canonical" href="https://liangyaopei.github.io/2020/08/01/hyperloglog/">
+<link rel="canonical" href="https://liangyaopei.github.io/2022/12/20/fma-mode-intro/">
 
 
 <script id="page-configurations">
@@ -54,7 +45,7 @@
   };
 </script>
 
-  <title>HyperLogLog原理以及Golang实现 | Random walk to my blog</title>
+  <title>FMA故障模式介绍 | Random walk to my blog</title>
   
 
 
@@ -170,7 +161,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2020/08/01/hyperloglog/">
+    <link itemprop="mainEntityOfPage" href="https://liangyaopei.github.io/2022/12/20/fma-mode-intro/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -183,7 +174,7 @@
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
-          HyperLogLog原理以及Golang实现
+          FMA故障模式介绍
         </h1>
 
         <div class="post-meta">
@@ -192,23 +183,17 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
+              
 
-              <time title="创建时间：2020-08-01 10:49:01" itemprop="dateCreated datePublished" datetime="2020-08-01T10:49:01+08:00">2020-08-01</time>
+              <time title="创建时间：2022-12-20 16:57:30 / 修改时间：17:59:40" itemprop="dateCreated datePublished" datetime="2022-12-20T16:57:30+08:00">2022-12-20</time>
             </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2020-10-02 14:51:03" itemprop="dateModified" datetime="2020-10-02T14:51:03+08:00">2020-10-02</time>
-              </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="far fa-folder"></i>
               </span>
               <span class="post-meta-item-text">分类于</span>
                 <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Golang/" itemprop="url" rel="index"><span itemprop="name">Golang</span></a>
+                  <a href="/categories/microservice/" itemprop="url" rel="index"><span itemprop="name">microservice</span></a>
                 </span>
             </span>
 
@@ -223,28 +208,184 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <blockquote>
-<p>本文代码在<a target="_blank" rel="noopener" href="https://github.com/liangyaopei/hyper">我的Github仓库</a>,欢迎给star。<br>代码实现参考了<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/HyperLogLog">hyperloglog的维基百科</a></p>
-</blockquote>
-<h2 id="去重计数-Count-distinct"><a href="#去重计数-Count-distinct" class="headerlink" title="去重计数(Count distinct)"></a>去重计数(Count distinct)</h2><p>日常开发中，有时候需要对大量的数据集进行去重计数的工作，这是非常耗费计算资源的。比如说，需要计算某个视频/文章的观看用户数，由于同个用户可能在一天之内多次观看，使用要进行去重操作。如果使用一个hash集合保存用户的id，不仅耗费大量存储空间，也耗费计算的时间。</p>
-<p><code>HyperLogLog</code>适用于数量很大，能容忍少量错误率的去重计数操作，它使用的存储空间非常小，几十字节就能对百万以上的数据进行去重计数。</p>
+        <p>微软的FMA（Failure Mode Analysis）<a target="_blank" rel="noopener" href="https://learn.microsoft.com/en-us/azure/architecture/resiliency/failure-mode-analysis">设计方案</a>, 将自动化的故障治理分为：</p>
+<ul>
+<li>Detection: 故障探测，从直接指标上发现是否有某种类型的故障</li>
+<li>Recovery: 故障恢复, 自动治理的过程,用于几时止损</li>
+<li>Diagnostics: 故障定位, 一般由扔接入，排查故障根因，从本质上解决问题</li>
+</ul>
 <a id="more"></a> 
 
-<h2 id="从简单的计数器说起"><a href="#从简单的计数器说起" class="headerlink" title="从简单的计数器说起"></a>从简单的计数器说起</h2><p>假设数字是均匀分布的，那么计数就是<code>1/x_min</code>。为了是数字分布均匀，我们可以使用<code>hash</code>函数产生的hash值来进行估算这堆数字的基数(cardinality)。<br><img src="hll_simple.png" alt="hll_simple"><br>这个方法具有很高的偏差，并且依赖于最小的hash值。这个hash值有可能很小，从而干扰计数。</p>
-<h2 id="概率性的计数-Probabilistic-counting"><a href="#概率性的计数-Probabilistic-counting" class="headerlink" title="概率性的计数(Probabilistic counting)"></a>概率性的计数(Probabilistic counting)</h2><p>为了减少上一个方法的偏差，我们使用<code>hash(x)</code>这个hash值中的0 bit的个数来估算。这是因为，<code>hash(x)</code>以i个0 bit结尾的概率为<code>1/2^i</code>。<br><img src="hll_bit.png" alt="hll_bit"><br>平均来说，每<code>2^k</code>个数字，会有一个连续的<code>k</code>个0 bit结尾的数字出现。如果用<code>p(xi)</code>表示<code>hash(x)</code>连续0 bit结尾的个数，数字集合<code>&#123;x1,x2,...,xm&#125;</code>的基数是<code>2^R</code>,这里的<code>R=max(p(x1),p(x2),...,p(xm))</code></p>
-<p>这个方法有2个缺点</p>
-<ol>
-<li>这里给出的基数都是不连续的，基数<code>2^R</code>的集合是<code>&#123;1,2,4,8,16,32,...1024,...&#125;</code></li>
-<li>这个方法还是有比较大的偏差，因为它只记录最大的<code>p(xi)</code>,如果只出现一次，估数就有很大的偏差。</li>
-</ol>
-<h2 id="提高精度：LogLog"><a href="#提高精度：LogLog" class="headerlink" title="提高精度：LogLog"></a>提高精度：LogLog</h2><p>为例提高精度，我们可以去多个计数器，然后计算他们的平均值。如果使用多个独立的估数器，取它们的平均值，可以降低误差。<br><img src="hll_accuracy.png" alt="hll_accuracy"></p>
-<p>我们可以通过使用<code>m</code>个独立的，没有关联的hash函数：<code>&#123;h1(x),h2(x),...,hm(x)&#125;</code>,取每个hash函数的最大的连续0bit的个数：<code>R1,R2,...,Rm</code>, <code>2^R=2^(1/m(R1+R2+...+Rm))</code></p>
-<p>但是，这需要输入<code>x</code>经过<code>m</code>个hash函数的计算，这是比较消耗计算资源的。<a target="_blank" rel="noopener" href="https://www.ic.unicamp.br/~celio/peer2peer/math/bitmap-algorithms/durand03loglog.pdf">Durand and Flajolet</a> 提出的方法是, 使用单个的hash函数，让将hash值拆分到不同的bucket。为了将这个hash值拆分成<code>m</code>个不同bucket，取hash值的前<code>k</code>个bit作为索引，并且计算hash值的最后连续为0bit的个数<code>R</code>。</p>
-<p><img src="hll_example.png" alt="hll_example"></p>
-<p>通过<code>m</code>个bucket，我们模拟了使用了<code>m</code>个hansh函数。下面是计数方式<br><img src="cardinality.png" alt="cardinality"><br>上面的<code>constant</code>是0.79402。对于<code>m</code>个bucket，标准差是<code>1.3/sqrt(m)</code>。对于一个2048个bucket，每个bucket是5 bit大小，错误率是2.8%。5 bit大小的bucket，可以用来估算基数高达<code>2^27</code>的基数，而使用的空间大小仅为2048 * 5 = 1.2 KB。</p>
 <blockquote>
-<p>更多内容，访问我的<a target="_blank" rel="noopener" href="https://www.liangyaopei.com/">博客</a></p>
+<p>以过载为例：</p>
+<p>Detection对应排队时间超过10ms</p>
+<p>Recovery对应自适应限流</p>
+<p>Diagnostics对应根因定位，判断是上游有突增流量还是服务自身变更引入bug导致</p>
 </blockquote>
+<h2 id="FMA的梳理"><a href="#FMA的梳理" class="headerlink" title="FMA的梳理"></a>FMA的梳理</h2><table>
+<thead>
+<tr>
+<th>Failure</th>
+<th>Detection</th>
+<th>Recovery</th>
+<th>Diagnostics</th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>APP崩溃</td>
+<td>服务进程不可用</td>
+<td>自动挂起</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>用户非法调用接口，或者是用非法调用使系统过载</td>
+<td>每次请求校验身份信息，并且将请求与用户ID绑定</td>
+<td>- 对特定用户县里<br />- 封禁用户</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>服务更新引入bug</td>
+<td>节点健康实时检查</td>
+<td>回滚到是一个可用版本</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>后端节点建立连接失败</td>
+<td>- 网络故障<br />- 后端服务未部署<br />- 授权失败</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>写Azure Search失败</td>
+<td>在调用端捕获异常</td>
+<td>重试</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>读Azure Search失败</td>
+<td>在调用端捕获异常</td>
+<td>重试</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Curmos DB读写失败</td>
+<td>在调用端捕获异常</td>
+<td>- 重试<br />- 尽可能多副本部署DB</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>消息队列写入失败</td>
+<td></td>
+<td>- 本地缓存数据，消息队列可用后再写入<br />- 创建备用队列并且写入</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>消费者无法处理的某个特定信息</td>
+<td></td>
+<td>将消息发送到死信队列</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>读Redis失败</td>
+<td>在调用端捕获异常</td>
+<td>- 重试<br />- 缓存不命中，回源到DB</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>写Redis失败</td>
+<td>在调用端捕获异常</td>
+<td>- 重试<br />- 重试多次失败，暂时熔断，稍微写入缓存</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>SQL数据库建立连接失败</td>
+<td>监控连接失败异常</td>
+<td>前提是DB在多地区部署<br />- 读请求，自动化切换到副本<br />- 写请求，需要人工切换到副本</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>SQL客户端使用完所有连接池的连接</td>
+<td>监控失败连接异常</td>
+<td>- 重试<br />- 客户端做连接池隔离<br />- 增加连接池上限</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>数据库连接池达到上限</td>
+<td>- 调用端捕获异常<br />- 监控特定的错误码</td>
+<td>一般是瞬时的故障，即可以通过重试解决。如果持续命中这样的错误，意味着DB需要扩容</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Service Bus（消息队列管理）读失败</td>
+<td>SDK侧捕捉异常，并且标识异常是否为瞬时的</td>
+<td>- 重试<br />- 重试几次还是失败后，将消息写入死信队列</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Service Bus（消息队列管理）写失败</td>
+<td>SDK侧捕捉异常，并且标识异常是否为瞬时的</td>
+<td>- 重试<br />- 如果写失败为：队列quota用完，则需要排空队列的部分消息。调用端熔断<br />- 尽可能地使用分区队列或者Topic<br />- 消费双发</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Service Bus处理重复消息</td>
+<td>检测ID和发送的数量</td>
+<td>- 尽量将消费的流程做到幂等，否则需要在消息消费前识别消息ID，判断是否消费过<br />- Service Bus检查消息ID，在一定事件窗口内，只会将不重复ID的消息放入消息队列</td>
+<td>通过日志检查</td>
+<td></td>
+</tr>
+<tr>
+<td>Service Bus消费侧对于特定消息处理失败</td>
+<td>业务强相关场景，比如消息出现无效字段</td>
+<td>- 直接将消息移动到死信队列，之后执行独立的逻辑来检测死信队列<br />- [Peek Lock模式] 用于消费者内部逻辑异常的情况（例如panic等），这是给消息加锁，锁过期后，再次处理消息，如果达到最大加锁次数，或者超过一定时间，将消息移入死信队列</td>
+<td>有消息进入死信队列，发送一个事件</td>
+<td></td>
+</tr>
+<tr>
+<td>服务调用失败</td>
+<td>下游服务返回error</td>
+<td>1.重试<br />2.有状态的服务做逻辑上的回滚<br />3.无状态服务保证处理的幂等性<br />4.错误率很高的需要熔断</td>
+<td>应用日志</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>从以上表格看到，最通用的手段是重试，其次是熔断。</p>
+<h2 id="瞬时故障与非瞬时故障"><a href="#瞬时故障与非瞬时故障" class="headerlink" title="瞬时故障与非瞬时故障"></a>瞬时故障与非瞬时故障</h2><ul>
+<li>首先基于下游错误码来判断是瞬时还是非瞬时</li>
+<li>瞬时故障可以有限通过重试机制解决</li>
+<li>重试超过次数没有成功，则将故障判定为非瞬时</li>
+<li>非瞬时故障的处理与瞬时逻辑不同，一般有：熔断，切流，移入死信队列等</li>
+</ul>
+<h2 id="DB容灾"><a href="#DB容灾" class="headerlink" title="DB容灾"></a>DB容灾</h2><p>对DB容灾有特有的主备切换能力，其中读接口实现了自动切换，但是写接口需要人工手动切换。</p>
+<blockquote>
+<p>写切主，需要考虑主备同步的问题。一般操作流程是，关闭写接口，等待写接口流量掉0，且主备数据完全同步之后，在切主，最后开放写接口</p>
+</blockquote>
+<h2 id="MQ容灾"><a href="#MQ容灾" class="headerlink" title="MQ容灾"></a>MQ容灾</h2><h3 id="缓存后写入"><a href="#缓存后写入" class="headerlink" title="缓存后写入"></a>缓存后写入</h3><p>MQ写入失败后，Azure的做法是将数据缓存在本地，先给客户端返回成功，再异步地讲缓存数据写入MQ直到成功（如果一直没有成功会放入死信队列）。</p>
+<p>这种做法将数据缓存在本地，会有实例重启/迁移导致数据丢失的风险，更保险的做法是将数据缓存在Redis。</p>
+<h3 id="死信队列"><a href="#死信队列" class="headerlink" title="死信队列"></a>死信队列</h3><p>如果一个消息一直无法被消费，需要有个停止的方式，一般放在死信队列。</p>
+<h3 id="主备切换"><a href="#主备切换" class="headerlink" title="主备切换"></a>主备切换</h3><p>为了应对写MQ故障，Azure</p>
+<ul>
+<li>被动双发。写入主消息队列的错误率超过阈值后，切换写入到备消息队列</li>
+<li>主动双发。同时将消息写入主备消息队列</li>
+<li>消费侧做法。上述两种方式，消费者都要同时监听2个队列，并且需要针对消息做去重。</li>
+</ul>
 
     </div>
 
@@ -263,11 +404,6 @@
 
 
       <footer class="post-footer">
-          <div class="post-tags">
-              <a href="/tags/Golang/" rel="tag"># Golang</a>
-              <a href="/tags/hyperloglog/" rel="tag"># hyperloglog</a>
-              <a href="/tags/hash/" rel="tag"># hash</a>
-          </div>
 
         
 
@@ -275,13 +411,10 @@
         
     <div class="post-nav">
       <div class="post-nav-item">
-    <a href="/2020/07/29/bloom-filter/" rel="prev" title="布隆过滤器(Bloom Filter)原理及Golang实现">
-      <i class="fa fa-chevron-left"></i> 布隆过滤器(Bloom Filter)原理及Golang实现
+    <a href="/2022/12/18/cascade-failure-intro/" rel="prev" title="级联故障介绍">
+      <i class="fa fa-chevron-left"></i> 级联故障介绍
     </a></div>
-      <div class="post-nav-item">
-    <a href="/2020/08/04/designing-data-intensive-application-replication/" rel="next" title="分布式环境的数据复制(Replication)">
-      分布式环境的数据复制(Replication) <i class="fa fa-chevron-right"></i>
-    </a></div>
+      <div class="post-nav-item"></div>
     </div>
       </footer>
     
@@ -340,7 +473,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8E%BB%E9%87%8D%E8%AE%A1%E6%95%B0-Count-distinct"><span class="nav-number">1.</span> <span class="nav-text">去重计数(Count distinct)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%8E%E7%AE%80%E5%8D%95%E7%9A%84%E8%AE%A1%E6%95%B0%E5%99%A8%E8%AF%B4%E8%B5%B7"><span class="nav-number">2.</span> <span class="nav-text">从简单的计数器说起</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E7%8E%87%E6%80%A7%E7%9A%84%E8%AE%A1%E6%95%B0-Probabilistic-counting"><span class="nav-number">3.</span> <span class="nav-text">概率性的计数(Probabilistic counting)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8F%90%E9%AB%98%E7%B2%BE%E5%BA%A6%EF%BC%9ALogLog"><span class="nav-number">4.</span> <span class="nav-text">提高精度：LogLog</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#FMA%E7%9A%84%E6%A2%B3%E7%90%86"><span class="nav-number">1.</span> <span class="nav-text">FMA的梳理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9E%AC%E6%97%B6%E6%95%85%E9%9A%9C%E4%B8%8E%E9%9D%9E%E7%9E%AC%E6%97%B6%E6%95%85%E9%9A%9C"><span class="nav-number">2.</span> <span class="nav-text">瞬时故障与非瞬时故障</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DB%E5%AE%B9%E7%81%BE"><span class="nav-number">3.</span> <span class="nav-text">DB容灾</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MQ%E5%AE%B9%E7%81%BE"><span class="nav-number">4.</span> <span class="nav-text">MQ容灾</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BC%93%E5%AD%98%E5%90%8E%E5%86%99%E5%85%A5"><span class="nav-number">4.1.</span> <span class="nav-text">缓存后写入</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%AD%BB%E4%BF%A1%E9%98%9F%E5%88%97"><span class="nav-number">4.2.</span> <span class="nav-text">死信队列</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BB%E5%A4%87%E5%88%87%E6%8D%A2"><span class="nav-number">4.3.</span> <span class="nav-text">主备切换</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
